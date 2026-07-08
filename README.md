@@ -1,5 +1,5 @@
-# fraud-detection-sparkov
+# Credit Default Prediction — Lending Club
 
-Detecção de fraude em transações de cartão simuladas via Sparkov, com foco em classificação desbalanceada.
+Prever inadimplência em empréstimos P2P usando dados públicos reais do Lending Club — classificação desbalanceada com foco em custo de negócio e rigor temporal.
 
 > **Work in progress** — projeto em estágio inicial, estrutura ainda em construção.
