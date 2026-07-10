@@ -146,3 +146,17 @@ The project succeeds if:
 3. The limitations above are written down before anyone asks.
 
 The project is not evaluated by high accuracy, nor by high AUC in isolation.
+
+## 9. Term holdout
+
+term (36 or 60 months) is held out rather than pooled or used as a feature. The two terms
+default at different base rates — 13.89% for 36-month loans versus 25.16% for 60-month
+loans, nearly double — evidence that they are underwritten as distinct risk pools, not two
+points on the same scale. Pooling them would blur that difference into a single average
+that describes neither. The 36-month loans (618,345 of 673,314 approved loans, 91.8%)
+become the primary population, split by issue_d into train (through 2013), validation
+(2014) and test (2015). The 60-month loans (54,969) become a held-out transfer set,
+touched only after a model is selected on the primary population, to test whether what was
+learned on one term generalizes to the other. term remains in the dataset as EVAL_ONLY —
+the profit calculation needs it — but is never a training feature, since within each
+population it no longer varies.
