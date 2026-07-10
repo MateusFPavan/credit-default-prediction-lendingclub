@@ -249,3 +249,119 @@ Since the population contains only terminated loans, nobody is in hardship now �
 some were. The flag is dropped for zero variance; the hardship detail columns are dropped
 as post-origination leakage. Both decisions stand, for different reasons than they
 appeared to.
+
+## Remaining nulls — resolved by mechanism
+
+Diagnostic run on all 23 columns with residual nulls after the first cleaning pass. Four
+distinct mechanisms were found. Each received a different treatment.
+
+### Correction: the five dti > 100 rows were not typos
+
+Those five rows were five of the 239 joint applications in the population — a rate of
+2.1% among joint apps versus 0.0007% among individual ones. Roughly three thousand times
+more likely. This is not chance.
+
+The mechanism: dti is computed against the primary applicant's individual income, while
+the debt in the numerator reflects the household. In a joint application the numerator
+carries both borrowers' obligations and the denominator carries one salary. A dti of 999
+on a $1,770 income is that arithmetic, not a typing error.
+
+The removal stands; the justification changes. This is not "impossible values were
+removed" — it is "the metric does not apply to a subgroup, and the subgroup was
+isolated". The distinction matters: one is data hygiene, the other is understanding the
+field.
+
+Consequence: the remaining 234 joint applications carry the same distortion in milder
+form. Their dti is systematically inflated. Since dti_joint is dropped for nullity
+(99.97%), those rows would enter the model with a biased feature and no correction
+available. They are removed. The subgroup is 0.035% of the population and its own
+category (application_type = joint app) has a 95% CI of 9.74pp — it sustains no estimate
+of its own. Nothing is lost; a distorted feature is avoided.
+
+One joint application had annual_inc_joint and verification_status_joint populated but
+dti_joint null — a single orphan row, consistent with the same family of definitional
+gaps.
+
+### Mechanism 1: pure column rollout (4 columns)
+
+mort_acc, total_bc_limit, total_bal_ex_mort, acc_open_past_24mths share an identical null
+mask (7.0197%), are 100% null through 2011, and reach exactly 0% from 2013 onward. Their
+null mask overlaps era_pre_2012 at 100%.
+
+Treatment: sentinel -1, covered by the existing era_pre_2012 flag. No new flag.
+
+### Mechanism 2: stacked causes — rollout plus structural absence (6 columns)
+
+bc_util, bc_open_to_buy, percent_bc_gt_75, mths_since_recent_bc, mo_sin_old_il_acct and
+mths_since_recent_inq fall sharply after 2012 but never reach zero. A residual 1% to 11%
+persists in mature vintages.
+
+The residual is structural, not temporal. Bankcard utilization cannot be computed for a
+borrower with no bankcard; months since the oldest installment account cannot exist for a
+borrower with no installment account. Two mechanisms are stacked in one column.
+
+mths_since_recent_inq is the extreme case: 10-11% null in 2013, 2014 and 2015, and only
+43.69% overlap with era_pre_2012. More than half of its nulls have nothing to do with the
+rollout. Its default rate among nulls is 3.25pp LOWER than among filled rows — the
+signature of "this borrower never had a recent credit inquiry", which is a good-payer
+signal.
+
+Treatment: sentinel 999, not -1. The ordering must be preserved (longer since the event =
+lower risk; "never" is the extreme of that direction). Assigning -1 would assert an event
+occurred less than zero months ago, inverting the signal precisely on the safest group.
+mths_since_recent_inq additionally receives its own binary flag, since the majority of its
+nulls are structural rather than temporal.
+
+### Mechanism 3: sparse collection failures — informative, not noise (1,079 rows)
+
+pub_rec_bankruptcies, revol_util, chargeoff_within_12_mths, collections_12_mths_ex_med,
+tax_liens, dti carry nulls in 0.0003% to 0.1035% of rows. Together, 1,079 unique rows are
+affected.
+
+Those rows default at 18.35% against a population rate of 14.81% — a 3.54pp gap. The null
+carries signal. 65% of them are concentrated in the 2007-2008 vintages, consistent with
+immature collection processes in the platform's first years.
+
+Dropping them was considered and rejected. It would remove precisely the harder cases,
+bias the population downward, and gut two thirds of the early vintages that D3 retained
+in order to test the early-adopter hypothesis.
+
+Treatment: a single aggregate binary flag sparse_bureau_missing (the columns rarely
+co-occur), plus median imputation of the value. The flag carries the 3.54pp signal; the
+median fills a cell at a volume where it moves no estimate.
+
+### Mechanism 4: columns that did not exist in the window (4 columns)
+
+il_util is 100% null through 2014 and 95.47% null in 2015 — the same late-2015 rollout as
+the 13-column block already dropped. It was missed by scope, not by criterion.
+
+dti_joint, annual_inc_joint, verification_status_joint exist only for joint applications,
+which are being removed above.
+
+Treatment: dropped.
+
+### Mechanism coverage gap: three columns missed by the diagnostic
+
+Three columns with residual nulls were not included in the diagnostic pass and surfaced
+only when the final integrity assert refused to write a dataset containing nulls. The
+assert did its job. The columns are documented here rather than quietly patched.
+
+num_bc_sats and num_sats (8.29% null each): 100% null through 2011, exactly 0% from 2013
+onward, 100% overlap with era_pre_2012, and a default-rate gap of -0.02pp between null and
+filled rows — noise. Same signature as Mechanism 1, though from the Jun/2012 rollout
+rather than Mar/2012, so they do not share the identical mask of the other four.
+Treatment: sentinel -1, covered by the existing era_pre_2012 flag.
+
+num_tl_120dpd_2m (13.13% null): Mechanism 2. A residual 0.19%-5.03% persists in mature
+vintages; 23.67% of its nulls are unrelated to the rollout. Its null rows default 1.15pp
+MORE than filled rows — the opposite direction of mths_since_recent_inq.
+
+The inversion has a reading. The column counts accounts currently 120 days past due,
+updated within the last two months. A structural null means the bureau could not refresh
+that borrower's recent status. Absence of recent information about a borrower correlates
+with risk; absence of an event does not. The two nulls mean opposite things and must not
+share a treatment.
+
+Treatment: sentinel -1 (this is a count, not a time-since-event — there is no
+"higher is safer" ordering to preserve, and 999 would read as 999 delinquent accounts),
+plus its own binary flag num_tl_120dpd_2m_missing.
