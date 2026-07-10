@@ -147,16 +147,64 @@ The project succeeds if:
 
 The project is not evaluated by high accuracy, nor by high AUC in isolation.
 
-## 9. Term holdout
+## 9. Term restriction and the 60-month transfer set
 
-term (36 or 60 months) is held out rather than pooled or used as a feature. The two terms
-default at different base rates — 13.89% for 36-month loans versus 25.16% for 60-month
-loans, nearly double — evidence that they are underwritten as distinct risk pools, not two
-points on the same scale. Pooling them would blur that difference into a single average
-that describes neither. The 36-month loans (618,345 of 673,314 approved loans, 91.8%)
-become the primary population, split by issue_d into train (through 2013), validation
-(2014) and test (2015). The 60-month loans (54,969) become a held-out transfer set,
-touched only after a model is selected on the primary population, to test whether what was
-learned on one term generalizes to the other. term remains in the dataset as EVAL_ONLY —
-the profit calculation needs it — but is never a training feature, since within each
-population it no longer varies.
+The analytical population is restricted to 36-month loans (618,345 of 673,314; 91.8%).
+The 60-month loans (54,969) are held out and used only as a transfer set, after a model
+is selected.
+
+This is not a design preference. It is what the maturity cutoff leaves available.
+
+60-month loans in the population end at Dec/2013 — the last vintage old enough to have
+run its full term within the data. Training a separate 60-month model would leave: train
+on 2010-2011 (10.6K rows, ~2.3K positives), validate on 2012, test on 2013. Every row in
+that training set predates the 2012 bureau rollout, meaning the model would learn without
+seeing 24 features that exist, populated, in its own test set. Poor performance could not
+be attributed to term, sample size, or missing features — three causes, none isolable. A
+number that cannot be interpreted is not a result.
+
+The two terms do default at markedly different rates: 13.89% at 36 months against 25.16%
+at 60 months, nearly double, and the gap holds in every vintage. Three mechanisms could
+produce that gap, and they are not equivalent. Selection: borrowers who cannot afford the
+36-month installment choose the longer term, so term is a symptom of financial strain that
+other features already capture. Exposure: five years offers more opportunity for a life to
+go wrong, independent of who the borrower is. Structure: the same variables carry
+different weight across the two groups — income protects more over three years than over
+five.
+
+Only the third would require separate models. The transfer analysis distinguishes them:
+the 36-month model is applied to the 60-month loans, whose outcomes are known, and the
+degradation is measured. Mild degradation supports selection or exposure, and one scorecard
+suffices. Severe degradation is evidence that the populations are structurally distinct —
+which is a finding, not a failure.
+
+Asserting distinct risk pools before running that test would state the conclusion as a
+premise.
+
+term stays in the dataset as EVAL_ONLY: the profit calculation requires it. It is never a
+training feature, since within each population it does not vary.
+
+## 10. Consequences of the split, recorded before modeling
+
+The train/validation/test cut is by issue_d: train through 2013, validation 2014, test
+2015. Default rises monotonically across them (12.43%, 13.73%, 14.88%), consistent with
+the vintage trend observed in the data.
+
+Two consequences follow, and both were foreseen rather than discovered after the fact.
+
+Sentinel-driven shift. 19 of the 20 features with the largest standardized mean difference
+between train and test are the 2012 bureau rollout block (SMD 0.48 to 0.92). This is not
+distribution shift in the world — it is the mechanical effect of our own decision to keep
+the pre-2012 vintages (D3). Those rows carry sentinel values (-1, 999) in 29.86% of the
+training set and in 0% of validation and test. The era_pre_2012 flag disambiguates
+sentinel from signal, but it is itself constant outside the training set.
+
+The risk is that the model spends capacity learning a regime that does not exist at test
+time. The sensitivity check recorded under D3 is therefore no longer optional: training
+with and without the pre-2012 vintages, and comparing on the test set, is the first
+experiment, not an extension.
+
+Genuine policy shift. initial_list_status moves from 82% "f" in train to 41% in test —
+the platform migrated from fractional listings to whole loans over the period. This is
+real shift, not an artifact of cleaning. Whether the column carries risk signal or merely
+marks an era is an open question the modeling phase must answer.
