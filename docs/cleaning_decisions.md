@@ -181,3 +181,71 @@ an error to fix.
 - Sensitivity check on 2007-2009 vintages (kept per D3, on the hypothesis that early
   adopters of a new platform carry their own risk profile — recorded as a hypothesis to
   test, not a fact).
+
+## Corrections and additions (post categorical evidence)
+
+### verification_status is inverted — and it is not a definition error
+
+Verified income correlates with HIGHER default (17.75%) than not-verified income (11.74%).
+This is selection, not noise. Lending Club did not verify everyone's income: it verified
+when something in the application warranted a check. Verification is a consequence of a
+risk signal an analyst saw, not a cause of safety. The column does not measure "income is
+trustworthy" — it measures "the platform found it necessary to check".
+
+This corrects an earlier working assumption in this project: verification_status was
+proposed as the natural separator between real and misreported income among the
+high-income outliers. It is not. The decision to keep those rows stands, but on the
+internal-consistency audit (see Outliers section), not on their verification status.
+
+Consequence: the column is a legitimate and strong feature whose meaning is the opposite
+of the intuitive reading. This must be stated explicitly wherever it is interpreted.
+
+### emp_length null is MNAR, not missing data
+
+Null emp_length (5.58% of the population) has a 20.84% default rate [20.43-21.25],
+against 13.71%-15.20% for every filled category. The absence carries risk signal —
+plausibly unemployed, self-employed without documentation, or refusal to disclose. It is
+not random.
+
+Corroborating evidence: four of the five rows with impossible dti (>100) also have null
+emp_length.
+
+Decision: same treatment as the mths_since_* family — binary flag emp_length_missing plus
+an out-of-domain sentinel (-1). Median imputation would erase the single strongest signal
+in the column.
+
+### Rare category consolidation
+
+Criterion: a category survives if it can support its own risk estimate. The test is the
+width of the 95% binomial confidence interval around its default rate — when the error bar
+is wider than the difference worth detecting, the category asserts nothing on its own.
+
+- home_ownership: `any` (2 rows), `none` (~0.01%), `other` (~0.02%) collapsed into
+  `other`. CI widths of 12.75pp, 21.18pp, and degenerate respectively. The three mean the
+  same thing in practice: not mortgage, not rent, not owned outright.
+- purpose: `wedding`, `educational`, `renewable_energy` collapsed into `other`. These
+  categories were discontinued by the platform, so they exist only in older vintages —
+  keeping them would turn the category into a proxy for issue year, which is harmful under
+  temporal validation. `house` is kept: at ~0.5% its CI (~1.5pp) still supports an
+  estimate, and the category remains active.
+- application_type: `joint app` (239 rows, 0.04%) kept as-is. It is binary, and the rare
+  level carries structural meaning (the *_joint columns exist only there). Its CI (9.74pp)
+  means the model will likely ignore it; removing rows for being rare requires a better
+  reason.
+- addr_state: dropped entirely. With 51 levels — a third of them without enough sample to
+  sustain an estimate — it would add 50 dummies to the linear model in exchange for signal
+  that income, bureau attributes, and credit utilization already capture. Grouping into 4
+  census regions was considered and rejected: the grouping is arbitrary and would have to
+  be defended against alternatives (Fed districts, cost-of-living bands) without evidence
+  that geography adds anything. Recorded as a next step: test whether region-level
+  geography adds signal.
+- initial_list_status, emp_length, verification_status: no rare categories. Untouched.
+
+### hardship_flag: cardinality 1 for a specific reason
+
+hardship_flag = 'N' for 100% of the population, while 1,386 rows have hardship detail
+fields populated. The flag reflects current status; the detail fields preserve history.
+Since the population contains only terminated loans, nobody is in hardship now — though
+some were. The flag is dropped for zero variance; the hardship detail columns are dropped
+as post-origination leakage. Both decisions stand, for different reasons than they
+appeared to.

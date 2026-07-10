@@ -1,5 +1,5 @@
 data/raw/*
-data/processed/*
+data/processed/*.parquet
 .ipynb_checkpoints/
 __pycache__/
 .venv/
