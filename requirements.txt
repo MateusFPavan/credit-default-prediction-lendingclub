@@ -8,3 +8,4 @@ xgboost
 jupyter
 pyarrow
 statsmodels
+shap
