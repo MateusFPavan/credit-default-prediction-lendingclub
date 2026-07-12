@@ -1,12 +1,22 @@
 """Single-command reproduction entry point for credit-default-prediction-lendingclub.
 
-Reproduces the full pipeline, in order, from the raw CSV to the frozen final model's
-test-set result. Uses only relative paths (all paths are derived from this file's own
-location, never a hardcoded absolute path).
+This reproduces the final model and its test result from raw data. The model-selection
+experiments (baseline comparison, tuning, bootstrap) live in notebooks 06-11 and are
+documented in docs/FACTS.md; they are not re-run here because they take hours and are not
+needed to reproduce the delivered model.
+
+Essential path only: raw CSV -> cleaned dataset -> temporal split -> features -> final
+model -> test-result verification. Notebook 01 (data understanding) and notebook 02
+(cleaning diagnostics) are intentionally skipped - both are exploratory and neither is a
+prerequisite of notebook 03: 03 reads the raw CSV directly (confirmed by inspection) and
+re-implements docs/cleaning_decisions.md on its own; 02's only file output is
+docs/outliers_multivariados.csv, a diagnostic export nothing downstream reads.
+
+Uses only relative paths (all paths are derived from this file's own location, never a
+hardcoded absolute path).
 
 Usage:
-    python run_all.py            # full pipeline: notebooks 01-14, in order
-    python run_all.py --quick     # essential path only (skips tuning/bootstrap notebooks)
+    python run_all.py
 
 Prerequisite: data/raw/accepted_2007_to_2018Q4.csv must already be present (see the
 error message below for where to get it - this script never downloads it automatically,
@@ -16,24 +26,21 @@ Run with the project's own virtual environment active (or invoke this script wit
 venv's python interpreter directly), since it shells out to `python -m jupyter nbconvert`
 using whatever interpreter is currently running this script (sys.executable).
 """
-import argparse
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
-NOTEBOOKS_DIR = REPO_ROOT / "notebooks"
 RAW_CSV = REPO_ROOT / "data" / "raw" / "accepted_2007_to_2018Q4.csv"
 KERNEL_NAME = "credit-default-prediction-lendingclub"
-DEFAULT_TIMEOUT = 1800  # seconds
-HEAVY_TIMEOUT = 3600  # seconds, for notebooks known to run long tuning/bootstrap loops
+NOTEBOOK_TIMEOUT = 1800  # seconds; essential-path notebooks are light (no tuning loops)
 
 REFERENCE_PROFIT = "242,230,710.89"  # for the human-readable message only; the real
 # comparison is done inside src/verify_pipeline.py
 
 
-def run_notebook(filename, timeout):
+def run_notebook(filename, timeout=NOTEBOOK_TIMEOUT):
     """Execute one notebook in place via nbconvert. Raises RuntimeError on failure."""
     rel_path = f"notebooks/{filename}"
     cmd = [
@@ -86,62 +93,25 @@ def step_verify():
         )
 
 
-# Ordered, explicit pipeline. "quick" marks the steps that also run under --quick -
-# together they are exactly: cleaning -> build processed -> temporal split ->
-# feature engineering -> final train+test (the "essential path").
+# Fixed, single path - no branching. Exactly: build processed -> temporal split ->
+# feature engineering -> train & serialize final model -> verify.
 STEPS = [
-    {"id": "01", "kind": "notebook", "file": "01_data_understanding.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "Data understanding (EDA)"},
-    {"id": "02", "kind": "notebook", "file": "02_cleaning.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": True, "desc": "Cleaning"},
     {"id": "03", "kind": "notebook", "file": "03_build_processed.ipynb",
-     "timeout": DEFAULT_TIMEOUT, "quick": True, "desc": "Build processed dataset (loans_clean.parquet)"},
+     "desc": "Build processed dataset (loans_clean.parquet)"},
     {"id": "04", "kind": "notebook", "file": "04_temporal_split.ipynb",
-     "timeout": DEFAULT_TIMEOUT, "quick": True, "desc": "Temporal split (train/validation/test/transfer_60m)"},
+     "desc": "Temporal split (train/validation/test/transfer_60m)"},
     {"id": "05", "kind": "src", "func": step_feature_engineering,
-     "quick": True, "desc": "Feature engineering (src/features.build_features, applied+saved directly, replaces notebook 05)"},
-    {"id": "06", "kind": "notebook", "file": "06_baseline.ipynb",
-     "timeout": DEFAULT_TIMEOUT, "quick": False, "desc": "Baseline models (M0a/M0b/M1/M2/M3)"},
-    {"id": "07", "kind": "notebook", "file": "07_bootstrap_validation.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "Bootstrap validation (skipped by --quick)"},
-    {"id": "08", "kind": "notebook", "file": "08_xgboost.ipynb",
-     "timeout": DEFAULT_TIMEOUT, "quick": False, "desc": "XGBoost default baseline"},
-    {"id": "09", "kind": "notebook", "file": "09_xgboost_tuning.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "XGBoost hyperparameter tuning (30 fits)"},
-    {"id": "10", "kind": "notebook", "file": "10_walkforward_tuning.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "Walk-forward tuning (90 fits, skipped by --quick)"},
-    {"id": "11", "kind": "notebook", "file": "11_calibration.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "Reexecution noise + calibration (skipped by --quick)"},
-    {"id": "12", "kind": "notebook", "file": "12_final_test.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "Final held-out test evaluation"},
-    {"id": "13", "kind": "notebook", "file": "13_error_analysis.ipynb",
-     "timeout": HEAVY_TIMEOUT, "quick": False, "desc": "SHAP, error analysis, subgroup performance"},
+     "desc": "Feature engineering (src/features.build_features, applied+saved directly, replaces notebook 05)"},
     {"id": "14", "kind": "notebook", "file": "14_train_final_model.ipynb",
-     "timeout": DEFAULT_TIMEOUT, "quick": False, "desc": "Train & serialize final model (models/*.joblib)"},
+     "desc": "Train & serialize final model (models/*.joblib, models/model_meta.json)"},
     {"id": "verify", "kind": "src", "func": step_verify,
-     "quick": True, "desc": "Integrity verification (src/verify_pipeline.py) - mandatory final step"},
+     "desc": "Integrity verification (src/verify_pipeline.py) - mandatory final step"},
 ]
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument(
-        "--quick", action="store_true",
-        help=(
-            "Skip the heavy tuning/bootstrap notebooks (07, 09, 10, 11) and every "
-            "non-essential notebook (01, 06, 08, 12, 13, 14). Runs only: cleaning (02) -> "
-            "build processed (03) -> temporal split (04) -> feature engineering (05, via "
-            "src/) -> final train+test verification (src/verify_pipeline.py). Does NOT "
-            "regenerate models/*.joblib (that happens in notebook 14, skipped here) - it "
-            "only trains an in-memory model to confirm the pipeline reproduces the frozen "
-            "test result."
-        ),
-    )
-    args = parser.parse_args()
-
     print("=" * 70)
-    print("credit-default-prediction-lendingclub - reproducao do pipeline")
-    print(f"Modo: {'--quick (caminho essencial)' if args.quick else 'completo (notebooks 01-14)'}")
+    print("credit-default-prediction-lendingclub - reproducao do caminho essencial")
     print("=" * 70)
 
     if not RAW_CSV.exists():
@@ -158,17 +128,16 @@ def main():
         print("e rode este script novamente.")
         sys.exit(1)
 
-    active_steps = [s for s in STEPS if (not args.quick) or s["quick"]]
     total_start = time.time()
     step_times = []
 
-    for i, step in enumerate(active_steps, start=1):
+    for i, step in enumerate(STEPS, start=1):
         print()
-        print(f"[{i}/{len(active_steps)}] Etapa {step['id']}: {step['desc']}")
+        print(f"[{i}/{len(STEPS)}] Etapa {step['id']}: {step['desc']}")
         t0 = time.time()
         try:
             if step["kind"] == "notebook":
-                run_notebook(step["file"], step["timeout"])
+                run_notebook(step["file"])
             else:
                 step["func"]()
         except RuntimeError as e:
