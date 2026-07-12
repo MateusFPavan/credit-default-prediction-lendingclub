@@ -1,5 +1,6 @@
 data/raw/*
 data/processed/*.parquet
+models/*.joblib
 .ipynb_checkpoints/
 __pycache__/
 .venv/
