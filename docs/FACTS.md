@@ -1,4 +1,4 @@
-# FACTS.md — Canonical Facts Sheet
+# FACTS.md: Canonical Facts Sheet
 
 Single source of truth for all downstream documentation (README, technical report,
 one-pager). Every number here was extracted by direct reading of the project's actual
@@ -9,7 +9,7 @@ found in an artifact, it is marked **N/A**, with an explanation.
 
 A verification pass cross-checked every number below against `docs/scope.md` and
 `docs/cleaning_decisions.md`. Divergences found are called out explicitly in
-**Section 8 — Verification notes**; that section should be read before this sheet is used
+**Section 8: Verification notes**. That section should be read before this sheet is used
 as a source.
 
 ---
@@ -30,18 +30,18 @@ as a source.
   project received the file. This is the only documented pre-processing done upstream of
   this project.
 - **Data dictionary**: `docs/Lending Club Data Dictionary Approved.csv` (155 lines,
-  `LoanStatNew` naming — matches raw column names) and
+  `LoanStatNew` naming, matching raw column names) and
   `docs/Lending Club Data Dictionary Notes.csv` (123 lines, `BrowseNotesFile` camelCase
-  naming — a secondary source, not used for the lookup below). Both are third-party
-  copies; the original Lending Club dictionary source went offline when the platform shut
+  naming, a secondary source not used for the lookup below). Both are third-party
+  copies. The original Lending Club dictionary source went offline when the platform shut
   down (`docs/scope.md` §7).
   - Of the 151 raw columns, **150 have an exact-name definition** in the Approved
     dictionary. The 151st, `verification_status_joint`, has a definition present but
-    filed under a typo'd key, `verified_status_joint` — documented in
+    filed under a typo'd key, `verified_status_joint`. This is documented in
     `docs/cleaning_decisions.md` ("the dictionary entry verified_status_joint is a
-    typo"). Confirmed by direct grep on the dictionary file. Effectively 151/151 have a
+    typo") and confirmed by direct grep on the dictionary file. Effectively 151/151 have a
     findable definition, 150 by exact match and 1 via the known typo.
-  - `total_rev_hi_lim` initially appeared undefined in an automated key-match; the cause
+  - `total_rev_hi_lim` initially appeared undefined in an automated key-match. The cause
     was a trailing non-breaking space (`\xa0`) in the dictionary's own key, not a missing
     entry. Noted here since it is exactly the kind of silent extraction error this sheet
     is meant to catch.
@@ -54,7 +54,7 @@ as a source.
 
 All rows below were reproduced by directly reading `loan_status`, `issue_d`, and `term`
 from the raw CSV (not copied from `docs/scope.md`) and independently recomputing every
-cutoff. **All figures reconcile exactly with `docs/scope.md` — no divergence found.**
+cutoff. **All figures reconcile exactly with `docs/scope.md`. No divergence found.**
 
 | Reason | Rows | % of total in file |
 |---|---|---|
@@ -85,12 +85,12 @@ Second-stage exclusion (recorded in `docs/cleaning_decisions.md`, confirmed agai
 | **Final cleaned population** (`loans_clean.parquet`) | **673,314** | **-239 total** |
 
 `loans_clean.parquet` shape confirmed by direct read: **(673,314 rows, 84 columns)**. This
-is the artifact the task's phrase "84 colunas" refers to — see §8 for why
+is the artifact the task's phrase "84 colunas" refers to. See §8 for why
 `train.parquet` has 89, not 84, columns.
 
 Within the final cleaned population: `loan_status` value counts are Fully Paid 573,572 /
 Charged Off 99,742 (default rate 14.8136%, matching the population-level rate to within
-rounding). Term split: 36-month 618,345 rows (91.79%), 60-month 54,969 rows (8.21%) —
+rounding). Term split: 36-month 618,345 rows (91.79%), 60-month 54,969 rows (8.21%),
 matching `docs/scope.md` §9's "618,345 (91.8%)" exactly.
 
 ### Split sizes and default rates (directly read from each parquet)
@@ -103,17 +103,17 @@ matching `docs/scope.md` §9's "618,345 (91.8%)" exactly.
 | Transfer (60m) | `transfer_60m.parquet` | 54,969 | 25.1596% | 2010-05 to 2013-12 | 60m |
 
 172,988 + 162,570 + 282,787 = 618,345, matching the 36-month population total above.
-Default rate rises monotonically train → validation → test (12.43% → 13.73% → 14.88%),
-matching `docs/scope.md` §10 exactly.
+Default rate rises monotonically from train to validation to test (12.43% to 13.73% to
+14.88%), matching `docs/scope.md` §10 exactly.
 
 ---
 
 ## 3. Data dictionary (train.parquet's 89 columns)
 
-`train.parquet` has **89 columns** (confirmed by direct read), not 84 — see §8 for the
+`train.parquet` has **89 columns** (confirmed by direct read), not 84. See §8 for the
 reconciliation. Grouped by family. "% null (pre-treatment)" is the null rate **within the
 final analytical population**, from `docs/column_inventory.csv`'s
-`%nulos_populacao_aprovada` column (computed before any imputation/sentinel was applied);
+`%nulos_populacao_aprovada` column (computed before any imputation/sentinel was applied).
 "N/A (engineered)" means the column does not exist in the raw file. "Example value" is the
 first non-null value found in `train.parquet`.
 
@@ -123,7 +123,7 @@ first non-null value found in `train.parquet`.
 |---|---|---|---|---|---|---|
 | target | int64 | N/A (engineered) | none | derived from loan_status: 1=Charged Off, 0=Fully Paid | 0 | N/A — engineered, not in official dictionary |
 
-### EVAL_ONLY — never a model feature, used only for the profit calculation (5 columns)
+### EVAL_ONLY: never a model feature, used only for the profit calculation (5 columns)
 
 | Column | dtype | % null (pre-treatment) | Mechanism | Treatment | Example | Dictionary definition |
 |---|---|---|---|---|---|---|
@@ -133,7 +133,7 @@ first non-null value found in `train.parquet`.
 | term | float64 | 0.0% | none | parsed to integer months | 36.0 | The number of payments on the loan. Values are in months and can be either 36 or 60. |
 | total_rec_prncp | float64 | 0.0% | none | none | 5000.0 | Principal received to date |
 
-### EXCLUDED — Lending Club's own risk assessment, deliberately withheld (3 columns)
+### EXCLUDED: Lending Club's own risk assessment, deliberately withheld (3 columns)
 
 | Column | dtype | % null (pre-treatment) | Mechanism | Treatment | Example | Dictionary definition |
 |---|---|---|---|---|---|---|
@@ -141,7 +141,7 @@ first non-null value found in `train.parquet`.
 | grade | str | 0.0% | none | none (excluded from FEATURE_SET) | b | LC assigned loan grade |
 | sub_grade | str | 0.0% | none | none (excluded from FEATURE_SET) | b2 | LC assigned loan subgrade |
 
-### Family C — available at origination (65 columns; 64 are in FEATURE_SET, 1 excluded for redundancy)
+### Family C: available at origination (65 columns; 64 are in FEATURE_SET, 1 excluded for redundancy)
 
 | Column | dtype | % null (pre-treatment) | Mechanism | Treatment | Example | Dictionary definition |
 |---|---|---|---|---|---|---|
@@ -251,7 +251,7 @@ first non-null value found in `train.parquet`.
 
 ---
 
-## 5. Final results (test set, frozen — from notebooks 12/13/14)
+## 5. Final results (test set, frozen, from notebooks 12/13/14)
 
 ### Point estimates and bootstrap CIs (test 2015, N=282,787, 1,000 resamples, seed=42)
 
@@ -272,7 +272,7 @@ Bootstrap differences (paired, same 1,000 resamples):
 XGB_walkforward is the statistically distinguishable winner on the test set (the paired
 CI does not cross zero).
 
-### Validation → test: gain over M0b did not shrink (grew)
+### Validation to test: gain over M0b did not shrink (it grew)
 
 | Model | Gain on validation | Gain on test | Change | Change % |
 |---|---|---|---|---|
@@ -291,12 +291,12 @@ CI does not cross zero).
 | Lost interest | $23,123,128.88 |
 | Net gain (= profit above M0b) | $9,027,897.83 |
 
-Confusion matrix at threshold 0.31 (test, N=282,787): TP (rejected, defaulted) 3,855; TN
-(approved, paid) 233,909; FN (approved, defaulted) 38,234; FP (rejected, paid) 6,789. Only
+Confusion matrix at threshold 0.31 (test, N=282,787): TP (rejected, defaulted) 3,855, TN
+(approved, paid) 233,909, FN (approved, defaulted) 38,234, FP (rejected, paid) 6,789. Only
 9.16% of actual defaulters (3,855 of 42,089) are rejected by the model.
 
-Cost of each error type: FN (approved bad loans) cost $274,484,090.07 (N=38,234); FP
-(rejected good loans) cost $23,123,128.88 (N=6,789) — FN cost is ~11.9x FP cost.
+Cost of each error type: FN (approved bad loans) cost $274,484,090.07 (N=38,234), FP
+(rejected good loans) cost $23,123,128.88 (N=6,789). FN cost is ~11.9x FP cost.
 
 ### 60-month transfer (both models trained on 36-month data only)
 
@@ -306,8 +306,8 @@ Cost of each error type: FN (approved bad loans) cost $274,484,090.07 (N=38,234)
 | XGB_walkforward | 0.6846 | 0.6433 | -0.0412 | $9,027,897.83 | $1,066,477.36 | -88.19% |
 
 Default rate: 25.16% (60m) vs. 14.88% (36m, test). Degradation is severe for both models
-(M1's gain turns negative) — evidence of structurally distinct populations between 36- and
-60-month loans, per the reading criterion set in `docs/scope.md` §9.
+(M1's gain turns negative). This is evidence of structurally distinct populations between
+36- and 60-month loans, per the reading criterion set in `docs/scope.md` §9.
 
 ### Subgroup performance (test, XGB_walkforward)
 
@@ -349,13 +349,13 @@ By purpose (main categories, sorted by N descending, as in notebook 13):
 | house | 1,004 | 21.61% | 0.6680 |
 
 Calibration by decile (predicted probability vs. observed default, test): the model
-consistently **underestimates** default rate — observed exceeds predicted in every decile
-(e.g., decile 1: 3.30% observed vs. 2.46% predicted; decile 10: 31.80% observed vs. 30.86%
+consistently **underestimates** default rate: observed exceeds predicted in every decile
+(e.g., decile 1: 3.30% observed vs. 2.46% predicted, decile 10: 31.80% observed vs. 30.86%
 predicted). Profit per decile (if that decile alone were fully approved) turns negative in
 the riskiest decile (-$11,289,402.27), consistent with the 0.31 threshold sitting near
 where per-decile profit crosses zero.
 
-### SHAP (test, 50,000-row stratified sample — full test set estimated at ~22 min, exceeding the 10-min budget)
+### SHAP (test, 50,000-row stratified sample: full test set estimated at ~22 min, exceeding the 10-min budget)
 
 Top 10 features by mean |SHAP| (margin/log-odds space), with their gain-based rank for
 comparison:
@@ -378,9 +378,9 @@ comparison:
 not) **preserves** the univariate inversion documented in
 `docs/cleaning_decisions.md` (verified associates with higher default). But
 `verification_status_verified` (mean SHAP -0.0039 when active vs. +0.0044 when not, rank
-#61 of 90) **reverses** it, with a small effect — suggesting part of the univariate
+#61 of 90) **reverses** it, with a small effect. This suggests part of the univariate
 "Verified" signal was confounded by other correlated features, once controlled for
-multivariately. `era_pre_2012` has mean |SHAP| = 0.0000 (rank #90) — it is never used by
+multivariately. `era_pre_2012` has mean |SHAP| = 0.0000 (rank #90). It is never used by
 the tree on the test set, since the flag is always 0 outside the training population.
 
 ---
@@ -405,7 +405,7 @@ Cost asymmetry (computed directly on `train.parquet` via `src.economics.compute_
 | Median loss, bad loans | $5,398.84 |
 | Ratio (median loss / median interest) | 2.67x |
 
-A single bad loan costs, at the median, 2.67x what a single good loan returns — the
+A single bad loan costs, at the median, 2.67x what a single good loan returns. This is the
 quantitative basis for `docs/scope.md`'s decision to weight by value rather than count
 correct predictions.
 
@@ -435,14 +435,15 @@ correct predictions.
 | train N rows | 172,988 |
 
 Three conditions required for bit-exact reproducibility (established in notebook 11, and
-verified again during the Phase 7 refactor's integrity check — see `notebooks/14_train_final_model.ipynb`):
+verified again during the Phase 7 refactor's integrity check, documented in
+`notebooks/14_train_final_model.ipynb`):
 
 1. **random_state=42** on the estimator itself.
-2. **n_jobs=1** — this environment's XGBoost is only bit-for-bit deterministic across
+2. **n_jobs=1**: this environment's XGBoost is only bit-for-bit deterministic across
    separate runs at a fixed thread count (multi-threaded histogram building is not
    provably reproducible run-to-run).
-3. **Training row order preserved** — the training rows must be used in `train.parquet`'s
-   on-disk order, never re-sorted (e.g., by `issue_d`) before fitting; row order measurably
+3. **Training row order preserved**: the training rows must be used in `train.parquet`'s
+   on-disk order, never re-sorted (e.g., by `issue_d`) before fitting. Row order measurably
    changes XGBoost's histogram splits even with the same seed.
 
 ---
@@ -460,13 +461,13 @@ discrepancy surfaced, plus one clarification worth flagging explicitly:
    before feature engineering) has exactly **84 columns**, confirmed by direct read. But
    `train.parquet` (notebook 04's temporal split + notebook 05's `build_features`, which
    adds `installment_to_income`, `loan_to_income`, `credit_history_months`,
-   `revol_bal_to_income`, `open_acc_ratio`) has **89 columns** — 84 + 5. Both numbers are
-   correct for their respective artifact; this sheet follows the explicit instruction
+   `revol_bal_to_income`, `open_acc_ratio`) has **89 columns**: 84 + 5. Both numbers are
+   correct for their respective artifact. This sheet follows the explicit instruction
    ("cada coluna de train.parquet") and therefore reports 89, with this note so the
    discrepancy isn't mistaken for an error.
 2. Every number in the population funnel (§2) was independently recomputed from the raw
    CSV rather than copied from `docs/scope.md`, and matched exactly (2,260,701 →
-   673,553 → 673,314; default rate 14.81%; every intermediate exclusion count). No
+   673,553 → 673,314, default rate 14.81%, every intermediate exclusion count). No
    divergence found.
 3. Every split size and default rate (§2) was read directly from the four processed
    parquet files and matches `docs/scope.md` §10 exactly (12.4332%, 13.7264%, 14.8836%,
