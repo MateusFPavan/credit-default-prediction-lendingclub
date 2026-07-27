@@ -1,0 +1,2 @@
+model,threshold,TP_rejected_defaulted,TN_approved_paid,FN_approved_defaulted,FP_rejected_paid,N
+XGB_walkforward,0.31,3855,233909,38234,6789,282787

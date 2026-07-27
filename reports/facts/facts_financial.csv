@@ -1,0 +1,2 @@
+model,threshold,profit_model,profit_approve_all_m0b,net_gain,avoided_loss,lost_interest,decomposition_check_avoided_minus_lost
+XGB_walkforward,0.31,242230710.88999993,233202813.06,9027897.829999924,32151026.71,23123128.880000003,9027897.829999998
