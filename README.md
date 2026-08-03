@@ -64,7 +64,7 @@ approved):
 - **Leakage was screened on three fronts**: temporal (never shuffled), target
   (post-origination columns dropped, confirmed by univariate AUC), and identity
   (borrower ID is 100% null, so group-level splitting is not possible; this is stated as
-  a limitation, not hidden).
+  a limitation).
 - **Two engineered features were tried and dropped** (redundant FICO average; a
   bankcard-utilization ratio undefined for 30% of borrowers). This is reported as a
   strength of the process, not something omitted.
