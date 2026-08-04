@@ -253,7 +253,13 @@ function render(){
   app.appendChild(limitsSection());
   app.appendChild(methodSection());
   app.appendChild(footer());
-  requestAnimationFrame(animate);
+  // draw charts + wire the slider immediately (independent of scroll observer)
+  requestAnimationFrame(()=>{
+    try{ drawPsiLine(); }catch(e){ console.error('psi',e); }
+    try{ drawLift(); }catch(e){ console.error('lift',e); }
+    try{ wireThreshold(); }catch(e){ console.error('thr',e); }
+    try{ animate(); }catch(e){ console.error('animate',e); }
+  });
 }
 
 /* ---------------- HERO ---------------- */
@@ -566,9 +572,6 @@ function animate(){
     });
   },{threshold:.25});
   document.querySelectorAll('section').forEach(s=>io.observe(s));
-  drawPsiLine();
-  drawLift();
-  wireThreshold();
 }
 
 function drawLift(){
