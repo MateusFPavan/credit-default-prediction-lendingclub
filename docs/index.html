@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Default Risk — Turning Approvals into a Profit Decision</title>
+<style>
+  :root{
+    --ink:#0E2A47;        /* deep navy ink */
+    --ink-2:#1B3A5B;
+    --slate:#5A7391;      /* muted slate for secondary */
+    --mist:#8FA3BC;       /* light labels */
+    --paper:#F7F8FA;      /* page */
+    --card:#FFFFFF;
+    --line:#E4E9F0;       /* hairline */
+    --gain:#1E7A56;       /* dessaturated green */
+    --cost:#B03A2E;       /* dessaturated red */
+    --accent:#C8912E;     /* brass accent — credit ledger warmth */
+    --stable:#1E7A56;
+    --watch:#C8912E;
+    --unstable:#B03A2E;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Georgia,"Times New Roman",serif;
+    background:var(--paper); color:var(--ink);
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+
+  /* ---- Hero ---- */
+  header.hero{
+    background:var(--ink); color:#fff; padding:76px 0 64px;
+    border-bottom:3px solid var(--accent);
+  }
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.22em;
+    text-transform:uppercase; color:var(--accent); margin-bottom:20px;
+  }
+  h1{
+    font-size:clamp(30px,5vw,52px); line-height:1.12; font-weight:400;
+    letter-spacing:-.01em; max-width:16ch;
+  }
+  .hero p.lead{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:18px; color:#B9C7DA; margin-top:22px; max-width:60ch; line-height:1.65;
+  }
+  .hero-figure{
+    margin-top:44px; display:grid; grid-template-columns:auto 1fr; gap:28px;
+    align-items:center; border-top:1px solid rgba(255,255,255,.14); padding-top:34px;
+  }
+  .bignum{font-size:clamp(44px,7vw,72px); font-weight:400; letter-spacing:-.02em; color:#fff}
+  .bignum .unit{font-size:.5em; color:var(--accent)}
+  .hero-figure .cap{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:14px; color:#B9C7DA; line-height:1.6;
+  }
+  .hero-figure .cap b{color:#fff;font-weight:600}
+
+  /* ---- Section scaffolding ---- */
+  section{padding:72px 0; border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.1em}
+  h2{font-size:clamp(24px,3.4vw,34px);font-weight:400;letter-spacing:-.01em;line-height:1.2}
+  .sec-sub{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:16px;color:var(--slate);margin:14px 0 40px;max-width:64ch;line-height:1.65;
+  }
+
+  /* ---- KPI row ---- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .kpi{background:var(--card);padding:26px 22px}
+  .kpi .v{font-size:34px;font-weight:400;letter-spacing:-.01em;color:var(--ink)}
+  .kpi .l{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mist);margin-top:8px}
+  .kpi .sub{font-family:-apple-system,sans-serif;font-size:13px;color:var(--slate);margin-top:6px}
+
+  /* ---- Card / grid ---- */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:28px}
+  .card h3{font-size:19px;font-weight:400;margin-bottom:6px}
+  .card .note{font-family:-apple-system,sans-serif;font-size:13.5px;color:var(--slate);margin-bottom:22px;line-height:1.6}
+
+  /* ---- Confusion matrix ---- */
+  .cm{display:grid;grid-template-columns:auto 1fr 1fr;grid-auto-rows:auto;gap:6px;font-family:-apple-system,sans-serif}
+  .cm .axis{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mist);
+    display:flex;align-items:center;justify-content:center;text-align:center}
+  .cm .cell{border-radius:8px;padding:18px 14px;text-align:center;color:#fff}
+  .cm .cell .cn{font-size:26px;font-weight:600;font-family:Georgia,serif}
+  .cm .cell .ct{font-size:11.5px;opacity:.92;margin-top:6px;line-height:1.35}
+  .cm .good{background:var(--gain)}
+  .cm .bad{background:var(--cost)}
+  .cm .rowlab{font-size:12px;color:var(--slate);display:flex;align-items:center;justify-content:flex-end;
+    padding-right:10px;text-align:right;font-weight:600}
+
+  /* ---- Waterfall (CSS bars) ---- */
+  .wf{display:flex;align-items:flex-end;gap:24px;padding-top:10px}
+  .wf .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+  .wf .wfslot{width:100%;height:220px;position:relative;display:flex;align-items:flex-end}
+  .wf .bar{width:100%;border-radius:6px 6px 0 0;position:absolute;left:0;height:0;
+    transition:height .9s cubic-bezier(.2,.7,.3,1),bottom .9s cubic-bezier(.2,.7,.3,1)}
+  .wf .val{font-family:Georgia,serif;font-size:16px;margin-bottom:8px;color:var(--ink);font-weight:600}
+  .wf .lab{font-family:-apple-system,sans-serif;font-size:12.5px;color:var(--slate);margin-top:10px;text-align:center}
+
+  /* ---- PSI ---- */
+  .psi-lead{display:grid;grid-template-columns:200px 1fr;gap:28px;align-items:center;margin-bottom:28px}
+  .psi-badge{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--stable);
+    border-radius:10px;padding:26px}
+  .psi-badge .v{font-size:40px;font-weight:400;color:var(--ink)}
+  .psi-badge .l{font-family:-apple-system,sans-serif;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--mist);margin-top:6px}
+  .psi-badge .tag{display:inline-block;margin-top:12px;font-family:-apple-system,sans-serif;
+    font-size:12px;font-weight:600;color:var(--stable);background:rgba(30,122,86,.1);
+    padding:4px 10px;border-radius:20px}
+  .bands{display:flex;gap:18px;font-family:-apple-system,sans-serif;font-size:13px;color:var(--slate)}
+  .bands .b{display:flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .barlist{display:flex;flex-direction:column;gap:9px;font-family:-apple-system,sans-serif}
+  .barrow{display:grid;grid-template-columns:170px 1fr 52px;align-items:center;gap:12px;font-size:12.5px}
+  .barrow .fn{color:var(--slate);text-align:right;font-family:var(--mono);font-size:11px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .barrow .track{background:var(--line);border-radius:4px;height:16px;overflow:hidden}
+  .barrow .fill{height:100%;border-radius:4px}
+  .barrow .pv{font-family:var(--mono);font-size:11.5px;color:var(--ink);text-align:right}
+
+  /* ---- Subgroups ---- */
+  .sg{display:flex;align-items:flex-end;gap:10px;height:210px;padding-top:8px}
+  .sg .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .sg .bar{width:70%;background:var(--ink-2);border-radius:5px 5px 0 0;transition:height .8s ease}
+  .sg .bar.weak{background:var(--cost)}
+  .sg .v{font-family:var(--mono);font-size:11px;color:var(--slate);margin-bottom:6px}
+  .sg .l{font-family:-apple-system,sans-serif;font-size:12px;color:var(--slate);margin-top:8px}
+
+  .callout{background:var(--ink);color:#fff;border-radius:10px;padding:24px 28px;margin-top:28px;
+    font-family:-apple-system,sans-serif;font-size:15px;line-height:1.6}
+  .callout b{color:var(--accent)}
+
+  /* ---- Threshold slider ---- */
+  .thr-wrap{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:28px;margin-top:8px}
+  .thr-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:24px}
+  .thr-top .box{background:var(--card);padding:18px 20px;text-align:center}
+  .thr-top .box .v{font-family:Georgia,serif;font-size:28px;color:var(--ink)}
+  .thr-top .box .l{font-family:-apple-system,sans-serif;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--mist);margin-top:6px}
+  .slider-row{display:flex;align-items:center;gap:18px;margin:8px 0 6px}
+  .slider-row input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;
+    border-radius:3px;background:linear-gradient(to right,var(--gain),var(--accent),var(--cost));outline:none}
+  .slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:22px;height:22px;border-radius:50%;background:var(--ink);border:3px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer}
+  .slider-row input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+    background:var(--ink);border:3px solid #fff;cursor:pointer}
+  .thr-val{font-family:Georgia,serif;font-size:24px;color:var(--ink);min-width:64px;text-align:center}
+  .thr-marks{display:flex;justify-content:space-between;font-family:-apple-system,sans-serif;
+    font-size:11.5px;color:var(--slate);margin-top:2px}
+  .thr-marks b{color:var(--accent)}
+  .thr-cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;margin-top:24px;font-family:-apple-system,sans-serif}
+  .thr-cm .axis{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mist);
+    display:flex;align-items:center;justify-content:center;text-align:center}
+  .thr-cm .cell{border-radius:8px;padding:16px 12px;text-align:center;color:#fff;transition:background .3s}
+  .thr-cm .cell .cn{font-size:23px;font-weight:600;font-family:Georgia,serif}
+  .thr-cm .cell .ct{font-size:11px;opacity:.92;margin-top:5px;line-height:1.3}
+  .thr-cm .rowlab{font-size:12px;color:var(--slate);display:flex;align-items:center;
+    justify-content:flex-end;padding-right:10px;text-align:right;font-weight:600}
+
+  /* ---- Methodology ---- */
+  .method{display:grid;grid-template-columns:1fr 1fr;gap:14px 40px;font-family:-apple-system,sans-serif}
+  .method .m{border-top:1px solid var(--line);padding-top:16px}
+  .method .m h4{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px}
+  .method .m p{font-size:13.5px;color:var(--slate);line-height:1.6}
+
+  footer{background:var(--ink);color:#B9C7DA;padding:48px 0;
+    font-family:-apple-system,sans-serif;font-size:14px}
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  .foot-grid{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+
+  @media(max-width:820px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .grid2{grid-template-columns:1fr}
+    .psi-lead{grid-template-columns:1fr}
+    .method{grid-template-columns:1fr}
+    .barrow{grid-template-columns:120px 1fr 46px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* Credit Default Risk dashboard — all figures verified against docs/FACTS.md
+   (the project's single source of truth). No hand-typed numbers: values below
+   are copied from the code-generated fact sheets in reports/. */
+
+const DATA = {
+  metrics: { auc:0.6846, ks:0.2666, brier:0.1205, approval:96.24, defApproved:14.05 },
+  confusion: { // threshold 0.31, positive = default = reject
+    TP:3855, FP:6789, FN:38234, TN:233909, N:282787
+  },
+  financial: { profitModel:242.23, profitAll:233.20, netGain:9.03,
+               avoided:32.15, lostInterest:23.12 }, // in $M
+  psiScore: 0.0015,
+  psiBandsRaw: { stable:40, watch:5, unstable:31 },
+  psiBandsClean: { stable:73, watch:2, unstable:1 },
+  psiRaw: [
+    ["total_il_high_credit_limit",3.907],["num_tl_op_past_12m",3.901],
+    ["num_accts_ever_120_pd",3.894],["mo_sin_rcnt_tl",3.885],
+    ["num_actv_bc_tl",3.880],["num_rev_tl_bal_gt_0",3.879],
+    ["num_il_tl",3.879],["mo_sin_rcnt_rev_tl_op",3.879]
+  ],
+  psiClean: [
+    ["initial_list_status",0.477],["verification_status",0.234],
+    ["num_tl_120dpd_2m",0.165],["revol_util",0.063],
+    ["percent_bc_gt_75",0.059],["num_bc_tl",0.058],
+    ["acc_open_past_24mths",0.054],["mths_since_last_record",0.054]
+  ],
+  // quarterly Score-PSI curve (baseline = train, quarters with >=500 loans)
+  psiQuarterly: [
+    ["2008Q1",2.11],["2008Q4",2.08],["2009Q1",1.86],["2009Q2",1.95],
+    ["2009Q3",1.90],["2009Q4",1.84],["2010Q1",1.79],["2010Q2",1.71],
+    ["2010Q3",1.83],["2010Q4",2.08],["2011Q1",1.00],["2011Q2",0.86],
+    ["2011Q3",0.72],["2011Q4",0.44],["2012Q1",0.28],["2012Q2",0.15],
+    ["2012Q3",0.08],["2012Q4",0.05],["2013Q1",0.10],["2013Q2",0.09],
+    ["2013Q3",0.06],["2013Q4",0.05],["2014Q1",0.06],["2014Q2",0.05],
+    ["2014Q3",0.04],["2014Q4",0.06],["2015Q1",0.05],["2015Q2",0.05],
+    ["2015Q3",0.04],["2015Q4",0.04]
+  ],
+  grade: [["A",0.648,5.4],["B",0.605,11.9],["C",0.597,19.4],
+          ["D",0.589,26.2],["E",0.582,32.8],["F",0.588,42.4],["G",0.584,46.3]],
+  income: [["Q1",0.648,19.1],["Q2",0.672,15.6],["Q3",0.688,13.6],["Q4",0.697,11.0]],
+  // cumulative % of defaults captured by rejecting the riskiest X% (model vs random)
+  lift: [[0,0],[10,20.7],[20,36.5],[30,49.7],[40,61.1],[50,71.1],
+         [60,79.8],[70,87.1],[80,93.2],[90,97.5],[100,100]],
+  thresholdCurve: [{"t":0.05,"TP":39973,"FP":193712,"FN":2116,"TN":46986,"profit":67070976,"approval_rate":17.36,"default_approved":4.31},{"t":0.06,"TP":38671,"FP":177457,"FN":3418,"TN":63241,"profit":89691400,"approval_rate":23.57,"default_approved":5.13},{"t":0.07,"TP":37076,"FP":161039,"FN":5013,"TN":79659,"profit":111642019,"approval_rate":29.94,"default_approved":5.92},{"t":0.08,"TP":35380,"FP":145436,"FN":6709,"TN":95262,"profit":131741839,"approval_rate":36.06,"default_approved":6.58},{"t":0.09,"TP":33437,"FP":130301,"FN":8652,"TN":110397,"profit":149877598,"approval_rate":42.1,"default_approved":7.27},{"t":0.1,"TP":31337,"FP":116454,"FN":10752,"TN":124244,"profit":165752700,"approval_rate":47.74,"default_approved":7.96},{"t":0.11,"TP":29336,"FP":103790,"FN":12753,"TN":136908,"profit":179996078,"approval_rate":52.92,"default_approved":8.52},{"t":0.12,"TP":27246,"FP":92055,"FN":14843,"TN":148643,"profit":191966293,"approval_rate":57.81,"default_approved":9.08},{"t":0.13,"TP":25229,"FP":81683,"FN":16860,"TN":159015,"profit":202027940,"approval_rate":62.19,"default_approved":9.59},{"t":0.14,"TP":23243,"FP":72135,"FN":18846,"TN":168563,"profit":210833734,"approval_rate":66.27,"default_approved":10.06},{"t":0.15,"TP":21353,"FP":63504,"FN":20736,"TN":177194,"profit":218037873,"approval_rate":69.99,"default_approved":10.48},{"t":0.16,"TP":19613,"FP":55901,"FN":22476,"TN":184797,"profit":224442090,"approval_rate":73.3,"default_approved":10.84},{"t":0.17,"TP":17953,"FP":49039,"FN":24136,"TN":191659,"profit":230059903,"approval_rate":76.31,"default_approved":11.18},{"t":0.18,"TP":16338,"FP":43006,"FN":25751,"TN":197692,"profit":233964196,"approval_rate":79.01,"default_approved":11.52},{"t":0.19,"TP":14817,"FP":37562,"FN":27272,"TN":203136,"profit":237397407,"approval_rate":81.48,"default_approved":11.84},{"t":0.2,"TP":13371,"FP":32939,"FN":28718,"TN":207759,"profit":239099894,"approval_rate":83.62,"default_approved":12.14},{"t":0.21,"TP":12092,"FP":28759,"FN":29997,"TN":211939,"profit":241113369,"approval_rate":85.55,"default_approved":12.4},{"t":0.22,"TP":10926,"FP":25096,"FN":31163,"TN":215602,"profit":242578064,"approval_rate":87.26,"default_approved":12.63},{"t":0.23,"TP":9821,"FP":21753,"FN":32268,"TN":218945,"profit":243861326,"approval_rate":88.83,"default_approved":12.84},{"t":0.24,"TP":8854,"FP":18909,"FN":33235,"TN":221789,"profit":244499474,"approval_rate":90.18,"default_approved":13.03},{"t":0.25,"TP":7926,"FP":16496,"FN":34163,"TN":224202,"profit":244523753,"approval_rate":91.36,"default_approved":13.22},{"t":0.26,"TP":7072,"FP":14279,"FN":35017,"TN":226419,"profit":244608660,"approval_rate":92.45,"default_approved":13.39},{"t":0.27,"TP":6271,"FP":12348,"FN":35818,"TN":228350,"profit":244124015,"approval_rate":93.42,"default_approved":13.56},{"t":0.28,"TP":5572,"FP":10654,"FN":36517,"TN":230044,"profit":243771360,"approval_rate":94.26,"default_approved":13.7},{"t":0.29,"TP":4942,"FP":9203,"FN":37147,"TN":231495,"profit":243183842,"approval_rate":95.0,"default_approved":13.83},{"t":0.3,"TP":4389,"FP":7911,"FN":37700,"TN":232787,"profit":242799050,"approval_rate":95.65,"default_approved":13.94},{"t":0.31,"TP":3855,"FP":6789,"FN":38234,"TN":233909,"profit":242230711,"approval_rate":96.24,"default_approved":14.05},{"t":0.32,"TP":3336,"FP":5840,"FN":38753,"TN":234858,"profit":241354685,"approval_rate":96.76,"default_approved":14.16},{"t":0.33,"TP":2938,"FP":5031,"FN":39151,"TN":235667,"profit":240721770,"approval_rate":97.18,"default_approved":14.25},{"t":0.34,"TP":2574,"FP":4306,"FN":39515,"TN":236392,"profit":239997043,"approval_rate":97.57,"default_approved":14.32},{"t":0.35,"TP":2254,"FP":3671,"FN":39835,"TN":237027,"profit":239458632,"approval_rate":97.9,"default_approved":14.39},{"t":0.36,"TP":1963,"FP":3117,"FN":40126,"TN":237581,"profit":239099747,"approval_rate":98.2,"default_approved":14.45},{"t":0.37,"TP":1677,"FP":2660,"FN":40412,"TN":238038,"profit":238421831,"approval_rate":98.47,"default_approved":14.51},{"t":0.38,"TP":1446,"FP":2229,"FN":40643,"TN":238469,"profit":238084405,"approval_rate":98.7,"default_approved":14.56},{"t":0.39,"TP":1258,"FP":1888,"FN":40831,"TN":238810,"profit":237755047,"approval_rate":98.89,"default_approved":14.6},{"t":0.4,"TP":1085,"FP":1590,"FN":41004,"TN":239108,"profit":237172603,"approval_rate":99.05,"default_approved":14.64},{"t":0.41,"TP":949,"FP":1319,"FN":41140,"TN":239379,"profit":236972396,"approval_rate":99.2,"default_approved":14.67},{"t":0.42,"TP":826,"FP":1124,"FN":41263,"TN":239574,"profit":236566114,"approval_rate":99.31,"default_approved":14.69},{"t":0.43,"TP":703,"FP":940,"FN":41386,"TN":239758,"profit":236052568,"approval_rate":99.42,"default_approved":14.72},{"t":0.44,"TP":608,"FP":765,"FN":41481,"TN":239933,"profit":235783779,"approval_rate":99.51,"default_approved":14.74},{"t":0.45,"TP":520,"FP":620,"FN":41569,"TN":240078,"profit":235640318,"approval_rate":99.6,"default_approved":14.76},{"t":0.46,"TP":443,"FP":514,"FN":41646,"TN":240184,"profit":235324561,"approval_rate":99.66,"default_approved":14.78},{"t":0.47,"TP":371,"FP":420,"FN":41718,"TN":240278,"profit":235106496,"approval_rate":99.72,"default_approved":14.79},{"t":0.48,"TP":316,"FP":355,"FN":41773,"TN":240343,"profit":234942250,"approval_rate":99.76,"default_approved":14.81},{"t":0.49,"TP":276,"FP":291,"FN":41813,"TN":240407,"profit":234807961,"approval_rate":99.8,"default_approved":14.82},{"t":0.5,"TP":241,"FP":240,"FN":41848,"TN":240458,"profit":234601467,"approval_rate":99.83,"default_approved":14.82},{"t":0.51,"TP":205,"FP":194,"FN":41884,"TN":240504,"profit":234474468,"approval_rate":99.86,"default_approved":14.83},{"t":0.52,"TP":170,"FP":158,"FN":41919,"TN":240540,"profit":234264515,"approval_rate":99.88,"default_approved":14.84},{"t":0.53,"TP":138,"FP":129,"FN":41951,"TN":240569,"profit":234131103,"approval_rate":99.91,"default_approved":14.85},{"t":0.54,"TP":106,"FP":102,"FN":41983,"TN":240596,"profit":233843363,"approval_rate":99.93,"default_approved":14.86},{"t":0.55,"TP":88,"FP":77,"FN":42001,"TN":240621,"profit":233788916,"approval_rate":99.94,"default_approved":14.86},{"t":0.56,"TP":66,"FP":57,"FN":42023,"TN":240641,"profit":233668081,"approval_rate":99.96,"default_approved":14.87},{"t":0.57,"TP":55,"FP":46,"FN":42034,"TN":240652,"profit":233628163,"approval_rate":99.96,"default_approved":14.87},{"t":0.58,"TP":44,"FP":35,"FN":42045,"TN":240663,"profit":233491591,"approval_rate":99.97,"default_approved":14.87},{"t":0.59,"TP":35,"FP":26,"FN":42054,"TN":240672,"profit":233439416,"approval_rate":99.98,"default_approved":14.87},{"t":0.6,"TP":32,"FP":19,"FN":42057,"TN":240679,"profit":233476437,"approval_rate":99.98,"default_approved":14.88},{"t":0.61,"TP":24,"FP":15,"FN":42065,"TN":240683,"profit":233435837,"approval_rate":99.99,"default_approved":14.88},{"t":0.62,"TP":19,"FP":12,"FN":42070,"TN":240686,"profit":233378604,"approval_rate":99.99,"default_approved":14.88},{"t":0.63,"TP":16,"FP":11,"FN":42073,"TN":240687,"profit":233367472,"approval_rate":99.99,"default_approved":14.88},{"t":0.64,"TP":13,"FP":10,"FN":42076,"TN":240688,"profit":233351961,"approval_rate":99.99,"default_approved":14.88},{"t":0.65,"TP":11,"FP":9,"FN":42078,"TN":240689,"profit":233327548,"approval_rate":99.99,"default_approved":14.88},{"t":0.66,"TP":5,"FP":8,"FN":42084,"TN":240690,"profit":233241636,"approval_rate":100.0,"default_approved":14.88},{"t":0.67,"TP":4,"FP":6,"FN":42085,"TN":240692,"profit":233231144,"approval_rate":100.0,"default_approved":14.88},{"t":0.68,"TP":3,"FP":4,"FN":42086,"TN":240694,"profit":233232586,"approval_rate":100.0,"default_approved":14.88},{"t":0.69,"TP":3,"FP":3,"FN":42086,"TN":240695,"profit":233236891,"approval_rate":100.0,"default_approved":14.88},{"t":0.7,"TP":3,"FP":1,"FN":42086,"TN":240697,"profit":233244352,"approval_rate":100.0,"default_approved":14.88},{"t":0.71,"TP":2,"FP":1,"FN":42087,"TN":240697,"profit":233240574,"approval_rate":100.0,"default_approved":14.88},{"t":0.72,"TP":2,"FP":0,"FN":42087,"TN":240698,"profit":233244451,"approval_rate":100.0,"default_approved":14.88},{"t":0.73,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.74,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.75,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.76,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.77,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.78,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.79,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.8,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.81,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.82,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.83,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.84,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.85,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.86,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.87,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.88,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.89,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.9,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.91,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.92,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.93,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.94,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88},{"t":0.95,"TP":0,"FP":0,"FN":42089,"TN":240698,"profit":233202813,"approval_rate":100.0,"default_approved":14.88}]
+};
+
+const $ = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstChild; };
+const fmtM = (v) => `$${v.toFixed(1)}M`;
+const fmtK = (v) => v.toLocaleString('en-US');
+
+function render(){
+  const app = document.getElementById('app');
+  app.appendChild(hero());
+  app.appendChild(perfSection());
+  app.appendChild(profitSection());
+  app.appendChild(thresholdSection());
+  app.appendChild(stabilitySection());
+  app.appendChild(limitsSection());
+  app.appendChild(methodSection());
+  app.appendChild(footer());
+  requestAnimationFrame(animate);
+}
+
+/* ---------------- HERO ---------------- */
+function hero(){
+  const d=DATA.financial;
+  return $(`<header class="hero"><div class="wrap">
+    <div class="eyebrow">Peer-to-peer consumer credit · 2007–2015</div>
+    <h1>Turning loan approvals into a profit decision</h1>
+    <p class="lead">A credit-default model for 673K real Lending Club loans, selected and
+    evaluated by expected portfolio profit — not accuracy. Because for a lender, those are
+    not the same target.</p>
+    <div class="hero-figure">
+      <div class="bignum">+$9.0<span class="unit">M</span></div>
+      <div class="cap"><span style="display:inline-block;font-size:11px;letter-spacing:.1em;
+      text-transform:uppercase;color:var(--accent);border:1px solid rgba(200,145,46,.4);
+      border-radius:4px;padding:2px 8px;margin-bottom:10px">Held-out 2015 test set</span><br>
+      Net gain over an approve-everyone policy
+      (95% CI <b>$7.6M–$10.7M</b>). The model rejects just <b>3.8%</b> of applications,
+      avoiding <b>$32.2M</b> in losses at a cost of <b>$23.1M</b> in forgone interest.</div>
+    </div>
+  </div></header>`);
+}
+
+/* ---------------- PERFORMANCE ---------------- */
+function perfSection(){
+  const m=DATA.metrics;
+  const s=$(`<section id="performance"><div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Does the model discriminate?</h2></div>
+    <p class="sec-sub">Accuracy is the wrong yardstick when 85% of loans are repaid — a model
+    that approves everyone scores 85% and prevents zero losses. These are the diagnostic
+    metrics; they explain behaviour, they don't decide the cutoff.</p>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${m.auc.toFixed(2)}</div><div class="l">ROC-AUC</div><div class="sub">rank quality</div></div>
+      <div class="kpi"><div class="v">${m.ks.toFixed(2)}</div><div class="l">KS statistic</div><div class="sub">good/bad separation</div></div>
+      <div class="kpi"><div class="v">${m.approval.toFixed(1)}%</div><div class="l">Approval rate</div><div class="sub">at the profit cutoff</div></div>
+      <div class="kpi"><div class="v">${m.defApproved.toFixed(1)}%</div><div class="l">Default (approved)</div><div class="sub">down from 14.8% base</div></div>
+    </div>
+    <div class="grid2" style="margin-top:28px">
+      ${confusionCard()}
+      ${gradeMini()}
+    </div>
+  </div></section>`);
+  return s;
+}
+
+function confusionCard(){
+  const c=DATA.confusion;
+  return `<div class="card">
+    <h3>Confusion matrix at the profit cutoff (0.31)</h3>
+    <p class="note">Convention: a positive prediction means <em>reject</em> (predict default).
+    The two costs are unequal — a false negative loses principal; a false positive loses only interest.</p>
+    <div class="cm">
+      <div class="axis"></div><div class="axis">Actually defaulted</div><div class="axis">Actually paid</div>
+      <div class="rowlab">Predicted<br>reject</div>
+        <div class="cell good"><div class="cn">${fmtK(c.TP)}</div><div class="ct">Loss avoided</div></div>
+        <div class="cell bad"><div class="cn">${fmtK(c.FP)}</div><div class="ct">Interest forgone</div></div>
+      <div class="rowlab">Predicted<br>approve</div>
+        <div class="cell bad"><div class="cn">${fmtK(c.FN)}</div><div class="ct">Principal lost</div></div>
+        <div class="cell good"><div class="cn">${fmtK(c.TN)}</div><div class="ct">Correct approval</div></div>
+    </div></div>`;
+}
+
+function gradeMini(){
+  return `<div class="card">
+    <h3>Chosen by profit, not accuracy</h3>
+    <p class="note">The winning model ties a logistic-regression baseline on AUC (0.68) but
+    wins decisively on profit — the +$6.3M an accuracy contest would have missed. Rejecting
+    the riskiest 10% of applicants avoids ~21% of all defaults, twice a random cut.</p>
+    <div style="font-family:-apple-system,sans-serif;font-size:14px;color:var(--slate);line-height:2">
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0">
+        <span>Approve-everyone baseline</span><b style="color:var(--ink);font-family:Georgia,serif">$233.2M</b></div>
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0">
+        <span>Logistic-regression baseline</span><b style="color:var(--ink);font-family:Georgia,serif">$235.9M</b></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0">
+        <span style="color:var(--ink);font-weight:600">XGBoost, walk-forward tuned</span>
+        <b style="color:var(--gain);font-family:Georgia,serif">$242.2M</b></div>
+    </div></div>`;
+}
+
+/* ---------------- PROFIT ---------------- */
+function profitSection(){
+  const f=DATA.financial;
+  const s=$(`<section id="profit"><div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Where the $9.0M comes from</h2></div>
+    <p class="sec-sub">The net gain decomposes cleanly: losses avoided by rejecting the riskiest
+    applicants, minus the interest forgone on the good borrowers caught in the net. The figure
+    is not inflated by an aggressive policy — 96.2% of applications are still approved.</p>
+    <div class="card">
+      <div class="wf" id="waterfall">
+        <div class="col"><div class="val">+${fmtM(f.avoided)}</div>
+          <div class="wfslot"><div class="bar" data-h="100" data-bot="0" style="background:var(--gain)"></div></div>
+          <div class="lab">Losses avoided<br>by rejecting risk</div></div>
+        <div class="col"><div class="val">−${fmtM(f.lostInterest)}</div>
+          <div class="wfslot"><div class="bar" data-h="72" data-bot="28" style="background:var(--cost)"></div></div>
+          <div class="lab">Interest forgone<br>on good borrowers</div></div>
+        <div class="col"><div class="val" style="color:var(--gain)">+${fmtM(f.netGain)}</div>
+          <div class="wfslot"><div class="bar" data-h="28" data-bot="0" style="background:var(--ink)"></div></div>
+          <div class="lab">Net gain<br>attributable to model</div></div>
+      </div>
+      <p style="font-family:-apple-system,sans-serif;font-size:12.5px;color:var(--mist);text-align:center;margin-top:18px">The red bar hangs from the top of the green — what remains below the gap is the net gain.</p>
+    </div>
+    <div class="card" style="margin-top:28px">
+      <h3>The rejections are targeted, not blunt</h3>
+      <p class="note">Ranking applicants by predicted risk and rejecting from the top:
+      turning away the riskiest <b>10%</b> already removes <b>20.7%</b> of all defaults —
+      roughly double what a random cut of the same size would catch.</p>
+      <div id="liftchart"></div>
+    </div>
+  </div></section>`);
+  return s;
+}
+
+function stabilitySection(){
+  return _stabilitySectionImpl();
+}
+
+/* ---------------- THRESHOLD (interactive) ---------------- */
+function thresholdSection(){
+  const s=$(`<section id="threshold"><div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The cutoff is a business decision</h2></div>
+    <p class="sec-sub">The classifier outputs a probability; someone still has to choose where to
+    draw the approve/reject line. It is not 0.5 by convention — it's chosen against the profit
+    curve. Drag the threshold and watch the trade-off move, on the real 2015 test set.</p>
+    <div class="thr-wrap">
+      <div class="thr-top">
+        <div class="box"><div class="v" id="thr-profit">—</div><div class="l">Portfolio profit</div></div>
+        <div class="box"><div class="v" id="thr-appr">—</div><div class="l">Approval rate</div></div>
+        <div class="box"><div class="v" id="thr-def">—</div><div class="l">Default among approved</div></div>
+      </div>
+      <div class="slider-row">
+        <span style="font-family:-apple-system,sans-serif;font-size:13px;color:var(--slate)">Threshold</span>
+        <input type="range" id="thr-slider" min="5" max="95" value="31" step="1"
+          aria-label="Decision threshold">
+        <span class="thr-val" id="thr-tval">0.31</span>
+      </div>
+      <div class="thr-marks">
+        <span>0.05 — reject freely</span>
+        <span><b>0.26 max profit · 0.31 operational</b></span>
+        <span>0.95 — approve freely</span>
+      </div>
+      <div class="thr-cm">
+        <div class="axis"></div><div class="axis">Actually defaulted</div><div class="axis">Actually paid</div>
+        <div class="rowlab">Predicted<br>reject</div>
+          <div class="cell" id="c-tp" style="background:var(--gain)"><div class="cn">—</div><div class="ct">Loss avoided</div></div>
+          <div class="cell" id="c-fp" style="background:var(--cost)"><div class="cn">—</div><div class="ct">Interest forgone</div></div>
+        <div class="rowlab">Predicted<br>approve</div>
+          <div class="cell" id="c-fn" style="background:var(--cost)"><div class="cn">—</div><div class="ct">Principal lost</div></div>
+          <div class="cell" id="c-tn" style="background:var(--gain)"><div class="cn">—</div><div class="ct">Correct approval</div></div>
+      </div>
+    </div>
+  </div></section>`);
+  return s;
+}
+
+function wireThreshold(){
+  const slider=document.getElementById('thr-slider'); if(!slider) return;
+  const curve=DATA.thresholdCurve;
+  const find=(t)=> curve.reduce((a,b)=> Math.abs(b.t-t)<Math.abs(a.t-t)?b:a);
+  const fmtDollarM=(v)=>`$${(v/1e6).toFixed(1)}M`;
+  function update(){
+    const t=parseInt(slider.value,10)/100;
+    const r=find(t);
+    document.getElementById('thr-tval').textContent=t.toFixed(2);
+    document.getElementById('thr-profit').textContent=fmtDollarM(r.profit);
+    document.getElementById('thr-appr').textContent=r.approval_rate.toFixed(1)+'%';
+    document.getElementById('thr-def').textContent=r.default_approved.toFixed(1)+'%';
+    document.querySelector('#c-tp .cn').textContent=r.TP.toLocaleString('en-US');
+    document.querySelector('#c-fp .cn').textContent=r.FP.toLocaleString('en-US');
+    document.querySelector('#c-fn .cn').textContent=r.FN.toLocaleString('en-US');
+    document.querySelector('#c-tn .cn').textContent=r.TN.toLocaleString('en-US');
+    // color intensity by cell magnitude within its row semantic (good=green, bad=red already)
+  }
+  slider.addEventListener('input',update);
+  update();
+}
+
+/* ---------------- STABILITY ---------------- */
+function _stabilitySectionImpl(){
+  const s=$(`<section id="stability"><div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Is the model stable over time?</h2></div>
+    <p class="sec-sub">Population Stability Index (PSI) is the credit industry's drift metric.
+    The score is stable — but the input features tell a subtler story that separates a real
+    signal from a known artefact.</p>
+    <div class="psi-lead">
+      <div class="psi-badge"><div class="v">${DATA.psiScore.toFixed(4)}</div>
+        <div class="l">Score PSI · train → 2015</div>
+        <div class="tag">Stable (&lt; 0.10)</div></div>
+      <div>
+        <p style="font-family:-apple-system,sans-serif;font-size:15px;color:var(--slate);line-height:1.7;margin-bottom:18px">
+        The model's <em>output</em> barely drifts (PSI 0.0015). Yet a naïve feature-level PSI
+        flags 31 of 79 features as unstable. That instability is not real population drift —
+        it is the mechanical footprint of the 2012 bureau-data rollout, where sentinel values
+        (−1) present in older vintages vanish in newer ones.</p>
+        <div class="bands">
+          <div class="b"><span class="dot" style="background:var(--stable)"></span>stable</div>
+          <div class="b"><span class="dot" style="background:var(--watch)"></span>watch (0.10–0.25)</div>
+          <div class="b"><span class="dot" style="background:var(--unstable)"></span>unstable (&gt;0.25)</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:28px">
+      <h3>Score PSI over time — stabilises near the training period</h3>
+      <p class="note">PSI of the model score by loan-issue quarter, against the training baseline.
+      High early (2008 is far from the training window), settling toward zero as quarters approach
+      the ≤2013 training period — exactly the expected shape.</p>
+      <div id="psiline"></div>
+    </div>
+    <div class="grid2">
+      ${psiCard("Raw view — sentinel artefact inflates PSI", DATA.psiRaw, 4, DATA.psiBandsRaw,
+        "All vintages. 31 features read as unstable — but they share the same ~3.9 PSI, the fingerprint of the vanishing −1 sentinel, not genuine drift.")}
+      ${psiCard("Clean view (post-2012) — the real picture", DATA.psiClean, 0.6, DATA.psiBandsClean,
+        "Baseline restricted to post-2012 vintages. Only initial_list_status and verification_status truly shift — both documented policy changes, not model failure.")}
+    </div>
+  </div></section>`);
+  return s;
+}
+
+function psiCard(title, rows, scale, bands, note){
+  const bandColor = (v)=> v<0.1?'var(--stable)':(v<0.25?'var(--watch)':'var(--unstable)');
+  const barsHtml = rows.map(([f,v])=>`
+    <div class="barrow">
+      <div class="fn" title="${f}">${f}</div>
+      <div class="track"><div class="fill" data-w="${Math.min(100,(v/scale)*100)}"
+        style="width:0;background:${bandColor(v)}"></div></div>
+      <div class="pv">${v.toFixed(v<0.1?3:2)}</div>
+    </div>`).join('');
+  return `<div class="card">
+    <h3>${title}</h3>
+    <p class="note">${note}</p>
+    <div class="barlist">${barsHtml}</div>
+    <div style="font-family:-apple-system,sans-serif;font-size:12px;color:var(--mist);
+      margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+      ${bands.stable} stable · ${bands.watch} watch · ${bands.unstable} unstable</div>
+  </div>`;
+}
+
+/* ---------------- LIMITS ---------------- */
+function limitsSection(){
+  const s=$(`<section id="limits"><div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Where the model is weakest</h2></div>
+    <p class="sec-sub">Reported directly, not smoothed into an aggregate. The model discriminates
+    worst exactly where a lender would most want precision: the highest-risk grades and the
+    lowest-income borrowers.</p>
+    <div class="grid2">
+      <div class="card"><h3>AUC by credit grade</h3>
+        <p class="note">Falls from 0.65 (grade A) toward 0.58 (grade G), even as the default rate
+        climbs from 5% to 46%.</p>
+        ${sgChart(DATA.grade, "grade", 4)}
+      </div>
+      <div class="card"><h3>AUC by income quartile</h3>
+        <p class="note">Weakest in Q1 (lowest income), where borrowers default most — the reverse
+        of where precision matters.</p>
+        ${sgChart(DATA.income, "income", 0)}
+      </div>
+    </div>
+    <div class="callout">
+      <b>Stated up front, not buried:</b> the model estimates P(default | approved) — it never saw
+      a rejected application, so it cannot serve as a first-pass underwriting filter, only as a
+      second layer over an already-approved book. It is not built for live lending as-is.
+    </div>
+  </div></section>`);
+  return s;
+}
+
+function sgChart(rows, kind, weakIdx){
+  const min=0.56, max=0.71; // zoom the meaningful band
+  const cols = rows.map(([l,auc],i)=>{
+    const h = ((auc-min)/(max-min))*100;
+    const weak = kind==="grade" && i===weakIdx;
+    return `<div class="col">
+      <div class="v">${auc.toFixed(3)}</div>
+      <div class="bar ${weak?'weak':''}" data-h="${h.toFixed(0)}" style="height:0"></div>
+      <div class="l">${l}</div></div>`;
+  }).join('');
+  return `<div class="sg">${cols}</div>`;
+}
+
+/* ---------------- METHOD ---------------- */
+function methodSection(){
+  const items=[
+    ["Decision metric is profit","Expected portfolio profit, not accuracy. A bad loan costs 2.67× what a good one returns; the cutoff is chosen where the profit curve peaks."],
+    ["Validation respects time","Walk-forward: train ≤2013, validate 2014, test 2015. Never a random shuffle — that would let 2015 loans inform predictions about 2011."],
+    ["Leakage screened three ways","Temporal (never shuffled), target (post-origination columns dropped and confirmed by univariate AUC), and identity (borrower ID is 100% null — stated as a limit)."],
+    ["Every number is reproducible","No figure is hand-typed. Each metric on this page is generated by code, written to a versioned fact sheet, and checked against a canonical source (56 automated checks)."]
+  ];
+  const ms = items.map(([h,p])=>`<div class="m"><h4>${h}</h4><p>${p}</p></div>`).join('');
+  return $(`<section id="method"><div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>How it was built</h2></div>
+    <p class="sec-sub">The commitments that make the result defensible in one sentence each.</p>
+    <div class="method">${ms}</div>
+  </div></section>`);
+}
+
+function footer(){
+  return $(`<footer><div class="wrap"><div class="foot-grid">
+    <div>Credit Default Prediction · Lending Club 2007–2015 · Mateus Fardin Pavan</div>
+    <div><a href="https://github.com/MateusFPavan/credit-default-prediction-lendingclub">GitHub repository</a>
+    &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/mateus-fardin-pavan/">LinkedIn</a></div>
+  </div></div></footer>`);
+}
+
+/* ---------------- ANIMATION ---------------- */
+function animate(){
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(!e.isIntersecting) return;
+      e.target.querySelectorAll('.bar[data-h]').forEach(b=>{ b.style.height=b.dataset.h+'%'; if(b.dataset.bot!==undefined) b.style.bottom=(b.dataset.bot||0)+'%'; });
+      e.target.querySelectorAll('.fill[data-w]').forEach(f=>{ f.style.transition='width .9s ease'; f.style.width=f.dataset.w+'%'; });
+      io.unobserve(e.target);
+    });
+  },{threshold:.25});
+  document.querySelectorAll('section').forEach(s=>io.observe(s));
+  drawPsiLine();
+  drawLift();
+  wireThreshold();
+}
+
+function drawLift(){
+  const host=document.getElementById('liftchart'); if(!host) return;
+  const data=DATA.lift, W=900,H=300,pad={l:44,r:16,t:16,b:44};
+  const x=(v)=>pad.l+(v/100)*(W-pad.l-pad.r);
+  const y=(v)=>pad.t+(1-v/100)*(H-pad.t-pad.b);
+  const modelPath=data.map((p,i)=>(i?'L':'M')+x(p[0]).toFixed(1)+' '+y(p[1]).toFixed(1)).join(' ');
+  const randPath=`M${x(0)} ${y(0)} L${x(100)} ${y(100)}`;
+  const grid=[0,25,50,75,100].map(v=>`
+    <line x1="${pad.l}" y1="${y(v)}" x2="${W-pad.r}" y2="${y(v)}" stroke="#E4E9F0"/>
+    <text x="${pad.l-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8FA3BC" font-family="monospace">${v}%</text>`).join('');
+  const xlab=[0,25,50,75,100].map(v=>`<text x="${x(v)}" y="${H-22}" text-anchor="middle" font-size="11" fill="#8FA3BC" font-family="monospace">${v}%</text>`).join('');
+  // marker at 10%
+  const mx=x(10), my=y(20.7);
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img"
+    aria-label="Cumulative defaults captured versus applications rejected; model curve rises well above the random diagonal">
+    ${grid}
+    <path d="${randPath}" fill="none" stroke="#8FA3BC" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <path d="${modelPath}" fill="none" stroke="#1E7A56" stroke-width="2.6" stroke-linejoin="round"/>
+    <line x1="${mx}" y1="${y(0)}" x2="${mx}" y2="${my}" stroke="#C8912E" stroke-width="1" stroke-dasharray="3 3"/>
+    <circle cx="${mx}" cy="${my}" r="4" fill="#C8912E"/>
+    <text x="${mx+10}" y="${my-6}" font-size="12" fill="#0E2A47" font-family="-apple-system,sans-serif" font-weight="600">20.7% of defaults</text>
+    <text x="${mx+10}" y="${my+10}" font-size="11" fill="#5A7391" font-family="-apple-system,sans-serif">at 10% rejected</text>
+    <text x="${W-pad.r-6}" y="${y(96)-4}" text-anchor="end" font-size="12" fill="#1E7A56" font-family="-apple-system,sans-serif" font-weight="600">Model</text>
+    <text x="${W-pad.r-6}" y="${y(72)}" text-anchor="end" font-size="12" fill="#8FA3BC" font-family="-apple-system,sans-serif">Random</text>
+    <text x="${(pad.l+W-pad.r)/2}" y="${H-4}" text-anchor="middle" font-size="12" fill="#5A7391" font-family="-apple-system,sans-serif">Applications rejected (riskiest first)</text>
+  </svg>`;
+}
+
+function drawPsiLine(){
+  const host=document.getElementById('psiline'); if(!host) return;
+  const data=DATA.psiQuarterly, W=900, H=220, pad={l:38,r:16,t:16,b:44};
+  const maxY=2.2;
+  const x=(i)=>pad.l+(i/(data.length-1))*(W-pad.l-pad.r);
+  const y=(v)=>pad.t+(1-v/maxY)*(H-pad.t-pad.b);
+  const pts=data.map(([q,v],i)=>[x(i),y(v)]);
+  const path=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=`M${pad.l} ${y(0)} `+pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+` L${x(data.length-1)} ${y(0)} Z`;
+  const gridY=[0,0.5,1,1.5,2].map(v=>`
+    <line x1="${pad.l}" y1="${y(v)}" x2="${W-pad.r}" y2="${y(v)}" stroke="#E4E9F0" stroke-width="1"/>
+    <text x="${pad.l-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8FA3BC" font-family="monospace">${v.toFixed(1)}</text>`).join('');
+  const labels=data.map(([q],i)=> (i%4===0)?`<text x="${x(i)}" y="${H-24}" text-anchor="middle" font-size="10" fill="#8FA3BC" font-family="monospace">${q}</text>`:'').join('');
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img"
+    aria-label="Score PSI by quarter, declining from 2.1 in 2008 to near zero by 2013">
+    ${gridY}
+    <path d="${area}" fill="rgba(14,42,71,.06)"/>
+    <path d="${path}" fill="none" stroke="#0E2A47" stroke-width="2.2" stroke-linejoin="round"/>
+    ${pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.4" fill="#0E2A47"/>`).join('')}
+    ${labels}
+  </svg>`;
+}
+
+render();
+
+</script>
+</body>
+</html>
