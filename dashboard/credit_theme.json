@@ -1,0 +1,173 @@
+{
+  "name": "Credit Risk Corporate",
+  "dataColors": [
+    "#1B3A5B",
+    "#2E6DA4",
+    "#6B8CAE",
+    "#2E8B57",
+    "#C0392B",
+    "#95A5A6",
+    "#4A6D8C",
+    "#7FA6C9",
+    "#3D566E"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#1B3A5B",
+  "tableAccent": "#2E6DA4",
+  "good": "#2E8B57",
+  "bad": "#C0392B",
+  "neutral": "#95A5A6",
+  "textClasses": {
+    "title": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 13,
+      "color": "#1B3A5B"
+    },
+    "label": {
+      "fontFace": "Segoe UI",
+      "fontSize": 10,
+      "color": "#6B8CAE"
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "title": [
+          {
+            "fontFace": "Segoe UI Semibold",
+            "fontSize": 13,
+            "fontColor": { "solid": { "color": "#1B3A5B" } },
+            "titleAlignment": "left"
+          }
+        ],
+        "background": [
+          {
+            "color": { "solid": { "color": "#FFFFFF" } },
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "show": true,
+            "color": { "solid": { "color": "#E1E1E1" } },
+            "radius": 4
+          }
+        ],
+        "categoryAxis": [
+          {
+            "fontFace": "Segoe UI",
+            "fontSize": 10,
+            "labelColor": { "solid": { "color": "#6B8CAE" } },
+            "gridlineColor": { "solid": { "color": "#E1E1E1" } }
+          }
+        ],
+        "valueAxis": [
+          {
+            "fontFace": "Segoe UI",
+            "fontSize": 10,
+            "labelColor": { "solid": { "color": "#6B8CAE" } },
+            "gridlineColor": { "solid": { "color": "#E1E1E1" } }
+          }
+        ],
+        "labels": [
+          {
+            "fontFace": "Segoe UI",
+            "fontSize": 10,
+            "color": { "solid": { "color": "#6B8CAE" } }
+          }
+        ]
+      }
+    },
+    "card": {
+      "*": {
+        "labels": [
+          {
+            "color": { "solid": { "color": "#1B3A5B" } },
+            "fontFace": "Segoe UI Semibold",
+            "fontSize": 24
+          }
+        ],
+        "categoryLabels": [
+          {
+            "color": { "solid": { "color": "#6B8CAE" } },
+            "fontFace": "Segoe UI",
+            "fontSize": 10
+          }
+        ],
+        "background": [
+          {
+            "color": { "solid": { "color": "#FFFFFF" } },
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "show": true,
+            "color": { "solid": { "color": "#E1E1E1" } },
+            "radius": 4
+          }
+        ]
+      }
+    },
+    "multiRowCard": {
+      "*": {
+        "dataLabels": [
+          {
+            "color": { "solid": { "color": "#1B3A5B" } },
+            "fontFace": "Segoe UI Semibold",
+            "fontSize": 24
+          }
+        ],
+        "categoryLabels": [
+          {
+            "color": { "solid": { "color": "#6B8CAE" } },
+            "fontFace": "Segoe UI",
+            "fontSize": 10
+          }
+        ]
+      }
+    },
+    "kpi": {
+      "*": {
+        "dataLabels": [
+          {
+            "color": { "solid": { "color": "#1B3A5B" } },
+            "fontFace": "Segoe UI Semibold"
+          }
+        ],
+        "goalLabels": [
+          {
+            "color": { "solid": { "color": "#6B8CAE" } }
+          }
+        ]
+      }
+    },
+    "tableEx": {
+      "*": {
+        "grid": [
+          {
+            "gridVertical": false,
+            "gridHorizontalColor": { "solid": { "color": "#E1E1E1" } },
+            "rowPadding": 6
+          }
+        ],
+        "columnHeaders": [
+          {
+            "fontFace": "Segoe UI Semibold",
+            "fontSize": 10,
+            "fontColor": { "solid": { "color": "#FFFFFF" } },
+            "backColor": { "solid": { "color": "#1B3A5B" } }
+          }
+        ],
+        "values": [
+          {
+            "fontFace": "Segoe UI",
+            "fontSize": 10,
+            "fontColor": { "solid": { "color": "#1B3A5B" } },
+            "backColor": { "solid": { "color": "#FFFFFF" } }
+          }
+        ]
+      }
+    }
+  }
+}

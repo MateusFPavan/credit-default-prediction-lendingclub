@@ -1,0 +1,5 @@
+predicted,actual,count,pct_of_total,cell_type,business_meaning
+Reject (predict default),Default,3855,0.013632168381149062,TP,Loss avoided
+Reject (predict default),Paid,6789,0.024007468518708427,FP,Interest forgone
+Approve (predict pay),Default,38234,0.1352042349895858,FN,Principal lost
+Approve (predict pay),Paid,233909,0.8271561281105567,TN,Correct approval
