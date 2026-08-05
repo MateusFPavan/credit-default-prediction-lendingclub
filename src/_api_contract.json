@@ -1,0 +1,107 @@
+{
+  "source": "data/processed/train.parquet",
+  "categorical_cols": [
+    "home_ownership",
+    "purpose",
+    "verification_status",
+    "initial_list_status",
+    "application_type"
+  ],
+  "categories": {
+    "home_ownership": [
+      "mortgage",
+      "other",
+      "own",
+      "rent"
+    ],
+    "purpose": [
+      "car",
+      "credit_card",
+      "debt_consolidation",
+      "home_improvement",
+      "house",
+      "major_purchase",
+      "medical",
+      "moving",
+      "other",
+      "small_business",
+      "vacation"
+    ],
+    "verification_status": [
+      "not verified",
+      "source verified",
+      "verified"
+    ],
+    "initial_list_status": [
+      "f",
+      "w"
+    ],
+    "application_type": [
+      "individual"
+    ]
+  },
+  "required_raw": [
+    "loan_amnt",
+    "installment",
+    "term",
+    "annual_inc",
+    "fico_range_low",
+    "dti",
+    "earliest_cr_line",
+    "issue_d",
+    "home_ownership",
+    "purpose",
+    "acc_open_past_24mths",
+    "open_acc",
+    "total_acc",
+    "revol_bal",
+    "revol_util"
+  ],
+  "observed_ranges": {
+    "loan_amnt": {
+      "min": 500.0,
+      "max": 35000.0
+    },
+    "installment": {
+      "min": 15.69,
+      "max": 1408.13
+    },
+    "term": {
+      "min": 36.0,
+      "max": 36.0
+    },
+    "annual_inc": {
+      "min": 4000.0,
+      "max": 7141778.0
+    },
+    "fico_range_low": {
+      "min": 625.0,
+      "max": 845.0
+    },
+    "dti": {
+      "min": 0.0,
+      "max": 34.99
+    },
+    "acc_open_past_24mths": {
+      "min": -1.0,
+      "max": 33.0
+    },
+    "open_acc": {
+      "min": 0.0,
+      "max": 62.0
+    },
+    "total_acc": {
+      "min": 2.0,
+      "max": 105.0
+    },
+    "revol_bal": {
+      "min": 0.0,
+      "max": 2568995.0
+    },
+    "revol_util": {
+      "min": 0.0,
+      "max": 140.4
+    }
+  },
+  "feature_set_size": 79
+}

@@ -122,3 +122,6 @@ webencodings==0.5.1
 websocket-client==1.9.0
 widgetsnbextension==4.0.15
 xgboost==3.3.0
+fastapi==0.141.1
+uvicorn==0.52.1
+pytest==9.1.1

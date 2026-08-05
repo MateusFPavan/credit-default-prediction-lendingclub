@@ -1,0 +1,10 @@
+{
+  "sparse_medians": {
+    "pub_rec_bankruptcies": 0.0,
+    "revol_util": 57.9,
+    "chargeoff_within_12_mths": 0.0,
+    "collections_12_mths_ex_med": 0.0,
+    "tax_liens": 0.0,
+    "dti": 15.74
+  }
+}
