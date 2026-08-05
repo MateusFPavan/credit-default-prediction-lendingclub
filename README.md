@@ -30,6 +30,14 @@ highest-risk, lowest-income segment. It was trained only on approved loans, so i
 score rejected applicants (a selection-bias limit). It is also not built for live lending
 decisions as-is.
 
+## Interactive Dashboard
+
+**[▶ Explore the live dashboard](https://mateusfpavan.github.io/credit-default-prediction-lendingclub/)** — a scrollable walkthrough from the $9M headline through model discrimination, the profit decomposition, an interactive threshold slider (recomputes the confusion matrix and portfolio profit live on the 2015 test set), PSI stability with a raw-vs-clean sentinel-artifact contrast, and honest subgroup limitations.
+
+[![Credit risk dashboard](dashboard/screenshots/01_performance.png)](https://mateusfpavan.github.io/credit-default-prediction-lendingclub/)
+
+A Power BI version of the same analysis (`.pbix` + screenshots) lives in [`dashboard/`](dashboard/).
+
 ## Key Results
 
 | Model | Test profit (2015) | 95% CI |
@@ -89,9 +97,10 @@ smoothed over in an aggregate metric:
 - **Not transferable to 60-month loans** without a dedicated scorecard. Applied without
   refitting, performance degrades severely, which is evidence that 36- and 60-month
   loans are structurally distinct risk populations.
-- **Not deployed.** Packaged as a reproducible, serialized artifact: no API, no live
-  monitoring, no drift detection. Deployment and a separate 60-month scorecard are named
-  next steps, not gaps.
+- **Not fully deployed.** Drift monitoring exists (Population Stability Index by feature
+  and score, with a raw-vs-clean view — see the dashboard and `src/psi.py`), but the model
+  is not yet served behind an API, and there is no live monitoring loop. A serving API and
+  a separate 60-month scorecard are named next steps, not gaps.
 
 Full disaggregated results, calibration analysis, and SHAP explainability:
 [`docs/technical_report.md`](docs/technical_report.md) §8.
@@ -146,6 +155,7 @@ src/             data.py, features.py, economics.py, models.py, verify_pipeline.
 models/          xgb_final.joblib, logistic_baseline.joblib (gitignored); model_meta.json (versioned)
 reports/figures/ business-impact figures
 docs/            technical report, data card, model card, setup guide, facts sheet
+dashboard/       Power BI (.pbix) + theme + screenshots; interactive web dashboard in docs/index.html
 references/      one-page recruiter case studies (EN and pt-BR)
 ```
 
