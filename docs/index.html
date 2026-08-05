@@ -254,12 +254,12 @@ function render(){
   app.appendChild(methodSection());
   app.appendChild(footer());
   // draw charts + wire the slider immediately (independent of scroll observer)
-  requestAnimationFrame(()=>{
+  setTimeout(()=>{
     try{ drawPsiLine(); }catch(e){ console.error('psi',e); }
     try{ drawLift(); }catch(e){ console.error('lift',e); }
     try{ wireThreshold(); }catch(e){ console.error('thr',e); }
     try{ animate(); }catch(e){ console.error('animate',e); }
-  });
+  }, 0);
 }
 
 /* ---------------- HERO ---------------- */
@@ -625,7 +625,7 @@ function drawPsiLine(){
   </svg>`;
 }
 
-render();
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',render);}else{render();}
 
 </script>
 </body>
