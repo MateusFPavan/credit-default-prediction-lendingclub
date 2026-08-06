@@ -8,3 +8,7 @@ __pycache__/
 
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+
+# excecao: o modelo final e versionado (4 MB) para que CI/Docker e "clone e rode"
+# funcionem num checkout limpo. O baseline logistico segue ignorado (nao usado pela API).
+!models/xgb_final.joblib
