@@ -1,0 +1,39 @@
+# Changelog
+
+All notable changes to this project are documented here.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.0.1] - 2026-08-06
+
+### Fixed
+- SETUP guide: removed the stale "No Makefile, Docker, or CI ... [TODO: add if a
+  reviewer requires one]" note in section 8 and reconciled the wording with reality --
+  Docker (section 9) and the GitHub Actions CI now exist. Version note bumped to 2.0.1.
+
+## [2.0.0] - 2026-08-06
+
+### Added
+- Production serving: FastAPI inference service (src/api.py) with POST /score
+  (returns probability_default + approve/reject at the 0.31 threshold) and GET /health;
+  input schema with per-field required/default decisions, 422 on invalid input, term
+  restricted to 36.
+- Production cleaning port (src/cleaning.py): notebook 03's missing-data treatment as
+  reusable code for single records, verified bit-for-bit against loans_clean.parquet.
+- Drift monitor (src/monitor.py): reuses the Phase-1 PSI engine against the clean
+  training baseline, with a measured sample floor and a real-vs-artifact verdict
+  (initial_list_status policy drift vs issue_d definitional artifact).
+- Containerization: Dockerfile, .dockerignore, and a lean requirements-api.txt.
+- CI: GitHub Actions workflow (.github/workflows/docker.yml) building the image and
+  smoke-testing /health, a real /score, and the 422 path on every push.
+- Model Card production section (section 10) and a defined retraining trigger.
+- models/xgb_final.joblib is now versioned in the repository (4.1 MB) so the container
+  and a clean checkout can serve without regenerating it.
+
+### Changed
+- Model Card version bumped to 2.0.0; deployment and drift monitoring moved from
+  "next steps" into a real production section.
+
+### Removed
+- Model Card claims that the model had "no API, no monitoring, no drift detection" and
+  that deployment was an unfinished next step -- now false.
