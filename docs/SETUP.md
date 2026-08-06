@@ -162,3 +162,29 @@ No GPU, no distributed setup, no special hardware.
 commands ✓ (§5), expected results/seeds ✓ (§6), relative paths only ✓ (throughout: no
 absolute path appears anywhere in this guide or in `run_all.py`), no committed secrets ✓
 (§3, §4).
+
+## 9. Servir a API em container (Docker)
+
+A API de inferência (`src/api.py`, tarefa 4.3) é containerizável. O container usa um
+runtime enxuto, `requirements-api.txt` (~9 pacotes: fastapi, uvicorn, pandas, numpy,
+scikit-learn, xgboost, joblib, pyarrow, pydantic), **não** o `requirements.txt` completo
+— este inclui o ecossistema de pesquisa (Jupyter, shap, seaborn) que a API não usa.
+Separar o runtime de produção do ambiente de análise mantém a imagem pequena e a
+superfície de manutenção reduzida.
+
+Build e execução (requer Docker):
+```bash
+docker build -t credit-default-api .
+docker run -p 8000:8000 credit-default-api
+# API em http://localhost:8000 ; contrato interativo em /docs
+```
+
+O build copia o pacote `src/` inteiro (os imports tardios exigem a cadeia `api -> scoring
+-> cleaning -> features -> data`) e apenas `models/xgb_final.joblib` (o baseline
+logístico não é usado pela API). `libgomp1` é instalado via apt porque o XGBoost o exige
+em imagem slim.
+
+O build e um smoke test completo (subir o container, `/health`, um `/score` real, e a
+checagem de 422 em input inválido) rodam automaticamente no GitHub Actions a cada push
+para `main` (`.github/workflows/docker.yml`) — não é necessário Docker local para
+validar.
