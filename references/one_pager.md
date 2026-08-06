@@ -19,7 +19,7 @@ defaults; rejecting too aggressively turns away paying customers. Getting the cu
 right, and getting it right on genuinely new applicants rather than on data the model
 already knows, is the entire business problem. Real historical outcomes are available
 (~673K matured Lending Club loans, 2007-2015, 14.8% default rate), making it possible to
-test a decision policy against what actually happened, not a hypothetical.
+test a decision policy against what actually happened.
 
 ## What I Did
 

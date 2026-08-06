@@ -245,7 +245,7 @@ headline AUC (0.6846) alone would suggest.
 exceeds predicted probability in every decile of the test set (decile 10: 31.80% observed
 vs. 30.86% predicted). Stated plainly: as an absolute probability, the score is
 optimistic. That is a limitation that matters directly for any threshold-based
-decisioning built on top of it, not just an academic footnote.
+decisioning built on top of it.
 
 **SHAP** (50,000-row stratified test sample, since a full-test run was estimated at ~22
 minutes, over the compute budget for this analysis). Top features by mean |SHAP|:

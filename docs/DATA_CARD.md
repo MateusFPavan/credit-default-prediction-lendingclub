@@ -115,10 +115,10 @@ perfect-predict the outcome by construction), 99 origination-time candidates, 4 
 columns (not used as features), and 5 target/evaluation columns (used only for financial
 calculations). Zero-variance columns (`policy_code`, `hardship_flag`, `out_prncp`,
 others) were dropped. Rare categories in `home_ownership`/`purpose` were consolidated via
-a binomial-CI-width rule, not an arbitrary cutoff. Five rows with impossible `dti` (>100)
+a binomial-CI-width rule. Five rows with impossible `dti` (>100)
 and 234 joint-application rows (`dti` computed on a different basis) were dropped from
 the population. The raw CSV is retained unmodified in `data/raw/`. Every transformation
-is re-derivable from it via notebooks 01-05 and `src/`, and nothing is hand-edited. The missing-data cleaning described here was additionally ported to `src/cleaning.py` for production inference (Phase 2): `clean_record` applies the same per-mechanism sentinels, engineered flags, and frozen-median imputation to a single new record, verified bit-for-bit against `loans_clean.parquet` across all 673,314 rows. The notebooks remain the source of the processed data; the module is a faithful port for serving, not a second definition.
+is re-derivable from it via notebooks 01-05 and `src/`, and nothing is hand-edited. The missing-data cleaning described here was additionally ported to `src/cleaning.py` for production inference (Phase 2): `clean_record` applies the same per-mechanism sentinels, engineered flags, and frozen-median imputation to a single new record, verified bit-for-bit against `loans_clean.parquet` across all 673,314 rows. The notebooks remain the source of the processed data; the module is a faithful port for serving.
 `verification_status` is semantically inverted: verified income correlates with *higher*
 default (17.75% vs. 11.74%). This is a selection effect, not an error, and is flagged
 wherever interpreted.
