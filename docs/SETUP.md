@@ -1,5 +1,7 @@
 # Setup & Reproducibility Guide
 
+**Version: 2.0.1 · Last updated: 2026-08-06.** Changelog in `CHANGELOG.md`.
+
 Follows the spirit of the NeurIPS ML Code Completeness Checklist: dependencies,
 exact commands, expected results, and honest scope boundaries.
 
@@ -152,9 +154,11 @@ No GPU, no distributed setup, no special hardware.
 - **Wanting to reproduce notebooks 06-11 (tuning/bootstrap) too**: expect hours, not
   minutes. Run each via `jupyter nbconvert --execute --inplace` individually rather than
   through `run_all.py`, which does not include them by design (§5).
-- **No Makefile, Docker, or CI**: `make` was unavailable on the development machine, so
-  none was created. There is no containerized or CI-driven reproduction path at this
-  time. [TODO: add if a reviewer requires one.]
+- **Containerized / CI reproduction**: the inference API is containerized (`Dockerfile`,
+  see section 9) and built + smoke-tested on every push via GitHub Actions
+  (`.github/workflows/docker.yml`). No Makefile is provided (`make` was unavailable on
+  the development machine); the single entry point for the full pipeline is `run_all.py`
+  (section 5), and container serving is documented in section 9.
 
 ---
 
