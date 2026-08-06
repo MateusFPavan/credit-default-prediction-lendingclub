@@ -1,0 +1,66 @@
+name: docker-build-and-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t credit-default-api:ci .
+
+      - name: Run container
+        run: |
+          docker run -d --name api -p 8000:8000 credit-default-api:ci
+          # esperar a API responder /health (ate ~30s)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "API pronta"; break
+            fi
+            sleep 1
+          done
+
+      - name: Test /health
+        run: |
+          curl -sf http://localhost:8000/health | tee /tmp/health.json
+          grep -q '"status":"ok"' /tmp/health.json
+
+      - name: Test /score (pedido valido real)
+        run: |
+          curl -sf -X POST http://localhost:8000/score \
+            -H "Content-Type: application/json" \
+            -d '{
+              "loan_amnt": 10000, "installment": 325.5, "term": 36,
+              "annual_inc": 60000, "fico_range_low": 710, "dti": 15.2,
+              "earliest_cr_line": "2001-08-01", "issue_d": "2015-06-01",
+              "home_ownership": "rent", "purpose": "debt_consolidation",
+              "acc_open_past_24mths": 3, "open_acc": 8, "total_acc": 20,
+              "revol_bal": 8500, "revol_util": 42.3,
+              "initial_list_status": "f", "inq_last_6mths": 1
+            }' | tee /tmp/score.json
+          # a resposta deve ter probability_default e decision
+          grep -q '"probability_default"' /tmp/score.json
+          grep -q '"decision"' /tmp/score.json
+
+      - name: Test 422 (input invalido)
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/score \
+            -H "Content-Type: application/json" \
+            -d '{"loan_amnt": 10000}')
+          echo "status para input incompleto: $code"
+          [ "$code" = "422" ]
+
+      - name: Container logs (sempre, para debug)
+        if: always()
+        run: docker logs api
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f api || true

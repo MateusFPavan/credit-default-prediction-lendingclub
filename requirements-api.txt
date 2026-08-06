@@ -1,0 +1,13 @@
+# Runtime enxuto para servir a API (src/api.py) em container.
+# Subset do requirements.txt completo (que inclui Jupyter/shap/etc. de pesquisa).
+# Versoes espelham o venv de desenvolvimento.
+fastapi==0.141.1
+uvicorn==0.52.1
+pandas==3.0.3
+numpy==2.4.6
+scikit-learn==1.9.0
+xgboost==3.3.0
+joblib==1.5.3
+pyarrow==24.0.0
+python-dateutil==2.9.0.post0
+pydantic==2.13.4

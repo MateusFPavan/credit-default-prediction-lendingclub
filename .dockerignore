@@ -1,0 +1,15 @@
+# nao copiar para o contexto de build: dados, ambiente, notebooks, git
+data/
+.venv/
+notebooks/
+reports/
+docs/
+tests/
+*.ipynb
+__pycache__/
+*.pyc
+.git/
+.github/
+.pytest_cache/
+models/logistic_baseline.joblib
+requirements.txt
