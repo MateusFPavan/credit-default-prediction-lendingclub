@@ -1,5 +1,9 @@
 # Credit Default Prediction: Lending Club
 
+[![CI](https://github.com/MateusFPavan/credit-default-prediction-lendingclub/actions/workflows/docker.yml/badge.svg)](https://github.com/MateusFPavan/credit-default-prediction-lendingclub/actions/workflows/docker.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+
 Turning loan approvals into a profit decision: a credit-default model for real
 peer-to-peer consumer loans, selected and evaluated by expected portfolio profit, not
 accuracy.
@@ -81,6 +85,32 @@ approved):
 
 Full methodology and every underlying number: [`docs/technical_report.md`](docs/technical_report.md).
 
+## Serving & Monitoring
+
+The model is served and monitored, not left as a notebook artifact. This is a reproducible,
+CI-tested inference stack, not a hosted service under SLA — the selection-bias limit below
+still governs what the scores may be used for.
+
+- **Inference API** ([`src/api.py`](src/api.py)): a FastAPI service. `POST /score` takes a
+  raw loan application, applies the *exact* training-time cleaning and encoding (reused via
+  `src/scoring.py` → `src/cleaning.py` → `src/features.py`, never reimplemented), and returns
+  a default probability plus an approve/reject decision at the 0.31 profit threshold.
+  `GET /health` reports readiness. Out-of-range or missing input returns HTTP 422 rather
+  than a silent wrong score, and `term` is restricted to 36 (the model is not valid for
+  60-month loans).
+- **Drift monitoring** ([`src/monitor.py`](src/monitor.py)): reuses the project's PSI engine
+  (`src/psi.py`) to compare an incoming batch against the training baseline. It separates
+  *genuine* drift (a real platform policy shift in `initial_list_status`, PSI ≈ 0.48) from
+  *artifacts* (the definitional `issue_d` split cut), and refuses to score batches below a
+  measured sample floor where PSI is just noise.
+- **Containerized + CI**: a [`Dockerfile`](Dockerfile) serves the API from a lean,
+  serving-only dependency set; a [GitHub Actions workflow](.github/workflows/docker.yml)
+  builds the image and smoke-tests `/health`, a real `/score`, and the 422 path on every
+  push.
+
+Serving, monitoring, and the retraining trigger are documented in
+[`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) §10.
+
 ## Limitations
 
 The model is not uniformly reliable, and that is reported directly rather than
@@ -97,10 +127,12 @@ smoothed over in an aggregate metric:
 - **Not transferable to 60-month loans** without a dedicated scorecard. Applied without
   refitting, performance degrades severely, which is evidence that 36- and 60-month
   loans are structurally distinct risk populations.
-- **Not fully deployed.** Drift monitoring exists (Population Stability Index by feature
-  and score, with a raw-vs-clean view — see the dashboard and `src/psi.py`), but the model
-  is not yet served behind an API, and there is no live monitoring loop. A serving API and
-  a separate 60-month scorecard are named next steps, not gaps.
+- **Optimistic calibration**: observed default exceeds predicted in every decile, so the
+  raw score should not be treated as a conservative probability. A recalibration attempt
+  was tested and rejected (it cost 42% of training data for no net profit gain).
+
+Remaining next steps (deliberate, not gaps): a dedicated 60-month scorecard, automated
+retraining execution with alerting, and monitoring against a real production batch.
 
 Full disaggregated results, calibration analysis, and SHAP explainability:
 [`docs/technical_report.md`](docs/technical_report.md) §8.
@@ -144,6 +176,15 @@ bootstrap validation, in `notebooks/06` through `11`): those take hours and are 
 needed to reproduce the delivered model. They are fully documented, not hidden. See
 `docs/FACTS.md` and the notebooks themselves.
 
+To serve the model behind the API (optional):
+
+```bash
+pip install -r requirements-api.txt
+uvicorn src.api:app --reload          # API at http://localhost:8000, contract at /docs
+# or, containerized:
+docker build -t credit-default-api . && docker run -p 8000:8000 credit-default-api
+```
+
 Full setup and troubleshooting: [`docs/SETUP.md`](docs/SETUP.md).
 
 ## Repository Structure
@@ -151,12 +192,14 @@ Full setup and troubleshooting: [`docs/SETUP.md`](docs/SETUP.md).
 ```
 data/            raw CSV (gitignored) and processed parquets (gitignored, sample versioned)
 notebooks/       01-15 working notebooks (full process) + 1.0-7.0 narrated notebooks (presentation)
-src/             data.py, features.py, economics.py, models.py, verify_pipeline.py
-models/          xgb_final.joblib, logistic_baseline.joblib (gitignored); model_meta.json (versioned)
+src/             data · features · economics · models · psi · scoring · cleaning · api · monitor · run/verify scripts
+models/          xgb_final.joblib (versioned) + model_meta.json; logistic_baseline.joblib (gitignored)
 reports/figures/ business-impact figures
 docs/            technical report, data card, model card, setup guide, facts sheet
 dashboard/       Power BI (.pbix) + theme + screenshots; interactive web dashboard in docs/index.html
 references/      one-page recruiter case studies (EN and pt-BR)
+Dockerfile       containerized inference API
+.github/         GitHub Actions CI (build + smoke-test the container)
 ```
 
 ## Documentation Index
@@ -166,15 +209,16 @@ references/      one-page recruiter case studies (EN and pt-BR)
 | [`docs/technical_report.md`](docs/technical_report.md) | Full methodology and results |
 | [`docs/FACTS.md`](docs/FACTS.md) | Canonical, verified facts sheet, the single source of truth for every number |
 | [`docs/DATA_CARD.md`](docs/DATA_CARD.md) | Dataset datasheet (provenance, license, missing-data mechanisms) |
-| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model specification, training procedure, evaluation |
+| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model specification, training procedure, evaluation, serving |
 | [`docs/SETUP.md`](docs/SETUP.md) | Environment setup and reproduction, step by step |
+| [`CHANGELOG.md`](CHANGELOG.md) | Versioned change history (Keep a Changelog / SemVer) |
 | [`references/one_pager.md`](references/one_pager.md) | One-page recruiter case study (EN) |
 | [`references/one_pager.pt-br.md`](references/one_pager.pt-br.md) | One-page recruiter case study (pt-BR) |
 | `notebooks/` | Full working process (`01`-`15`) and a narrated walkthrough (`1.0`-`7.0`) |
 
 ## Stack
 
-Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib
+Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib · FastAPI · Docker · GitHub Actions
 
 ## License & Contact
 
