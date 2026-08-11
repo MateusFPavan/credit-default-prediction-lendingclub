@@ -1,0 +1,27 @@
+{
+  "artifact": "rejected_population_ingestion",
+  "phase": "1",
+  "source_dataset": "kaggle: wordsforthewise/lending-club",
+  "source_file": "rejected_2007_to_2018Q4.csv.gz",
+  "license": "CC0-1.0",
+  "measured_row_count": 27648741,
+  "raw_gz_size_bytes": 255470782,
+  "partitioned_by": "app_year",
+  "written_to": "C:\\Users\\Avell\\Documents\\Projetos\\credit-default-prediction-lendingclub\\data\\processed\\reject\\rejected.parquet",
+  "generated_utc": "2026-08-11T22:01:17.811435+00:00",
+  "parse_audit": {
+    "corrupt_rows_after_fix": 0,
+    "parser_options": {
+      "multiLine": true,
+      "quote": "\"",
+      "escape": "\"",
+      "mode": "PERMISSIVE"
+    }
+  },
+  "note": "Descriptive ingestion + profile only. No labels exist for the rejected population by construction; no inference is performed in this phase.",
+  "engine": {
+    "ingestion_write": "PySpark (local pyarrow write; native Spark on Databricks)",
+    "local_read_profile": "DuckDB over partitioned Parquet (hive_partitioning=true)",
+    "rationale": "Spark for scale ingestion; DuckDB for single-node local analytics without Hadoop/winutils. Each tool where it fits."
+  }
+}
