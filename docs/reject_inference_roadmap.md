@@ -287,9 +287,6 @@ Arquitetura: PySpark (ingestão/escrita) + DuckDB (leitura/perfil local), ver De
 
 ### Pendente para as próximas etapas (não bloqueia a Fase 1)
 
-- **Validação no Databricks Free Edition**: rodar o mesmo notebook no ambiente Linux
-  serverless, onde o ramo Spark nativo funciona (prova a linha "Databricks" do currículo).
-  Único passo restante para encerrar a Fase 1 por completo.
 - **Fase 2**: geografia dos aprovados (regenerar addr_state do CSV cru para a comparação);
   técnicas de reject inference (pesquisa dedicada); desenho do thin model considerando o
   Risk_Score temporalmente ausente (Achado A) e o dti não comparável (Achado B).
@@ -297,6 +294,49 @@ Arquitetura: PySpark (ingestão/escrita) + DuckDB (leitura/perfil local), ver De
   rodada. Separar a ingestão pesada (roda uma vez) das análises leves (leem o Parquet
   pronto) evitaria reprocessar tudo a cada ajuste — útil na Fase 2, quando a iteração é
   frequente. Não feito na Fase 1 de propósito (não valia reabrir uma fase fechando).
+
+## Fase 1 — VALIDADA no Databricks (encerrada por completo)
+
+O notebook rodou de ponta a ponta no Databricks Free Edition (serverless, Linux), no ramo
+Spark NATIVO. Prova a linha "Databricks" (não só "PySpark local"). Notebook de prova:
+`notebooks/16_reject_validation_databricks.ipynb` (com outputs, é a evidência).
+
+### Consistência local vs Databricks (mesmo código, dois ambientes)
+
+| Métrica | Local (Windows) | Databricks (Linux) |
+|---|---|---|
+| Linhas | 27.648.741 | 27.648.741 |
+| Parsing corrompido | 0 | 0 |
+| risk_score presente | 33,1% | 33,1% |
+| Top estado | CA 3.242.169 | CA 3.242.169 |
+
+Reprodutibilidade demonstrada: mesmo pipeline, mesmos números, dois ambientes.
+
+### Prova de escrita nativa
+
+No Databricks a escrita `df.write.partitionBy("app_year").parquet()` rodou NATIVA (a mesma
+operação que falhava no Windows por falta de winutils/HADOOP_HOME). Releitura confirmou
+27.648.741 linhas.
+
+### Achado de ambiente (nota de currículo)
+
+O Databricks Free Edition (serverless) BLOQUEIA a config
+`spark.sql.csv.parser.columnPruning.enabled` — que o Spark local permite alterar. Erro:
+`[CONFIG_NOT_AVAILABLE.WITHOUT_SUGGESTION] ... is not available. SQLSTATE: 42K0I`.
+Solução: remover a linha; o `_corrupt_record` funcionou sem ela (auditoria = 0 confirmou).
+Lição: o serverless restringe configs internas de motor que o Spark self-managed expõe —
+diferença real de ambiente que só quem rodou em Databricks conhece.
+
+### Ingestão via Kaggle API no Databricks (reprodutível)
+
+O gzip (244 MB) foi baixado via Kaggle CLI dentro do notebook direto para o Volume do
+Unity Catalog (`/Volumes/workspace/credit_reject/data`), em ~4 min, sem estourar quota.
+Credencial passada por variável de ambiente em célula isolada, removida antes do export
+(token depois revogado). A ingestão é reprodutível ponta a ponta, sem passo manual oculto.
+
+### Estado
+
+FASE 1 ENCERRADA POR COMPLETO (local + Databricks). Próximo: Fase 2a (baseline + BASL).
 
 ## Achados de pesquisa retroativa (feita durante a Fase 1, antes de propagar)
 
