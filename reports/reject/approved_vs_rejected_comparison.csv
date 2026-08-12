@@ -1,0 +1,5 @@
+metric,population,mean,median,note
+amount,approved,13091.29,11000.0,loan_amnt
+amount,rejected,13133.24,10000.0,amount_requested
+dti,approved,17.55,17.06,LC-computed excl. mortgage
+dti,rejected,26.58,20.34,"application-time, denied (NOT same basis)"

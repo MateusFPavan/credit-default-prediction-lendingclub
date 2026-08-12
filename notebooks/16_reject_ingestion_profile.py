@@ -393,6 +393,23 @@ else:
     for yr, n, nr, pct, mean in res:
         print(f"{yr:<6}{n:>12,}{nr:>12,}{pct:>13}%{str(mean):>12}")
 
+    # Persist the risk_score-by-year profile as CSV (key evidence; becomes a Phase-2 chart).
+    os.makedirs(REPORTS, exist_ok=True)
+    rs_csv = os.path.join(REPORTS, "risk_score_coverage_by_year.csv")
+    con.execute(f"""
+        COPY (
+            SELECT app_year,
+                   COUNT(*)                                   AS n,
+                   COUNT(risk_score)                          AS n_risk_score,
+                   ROUND(100.0*COUNT(risk_score)/COUNT(*), 2) AS pct_present,
+                   ROUND(AVG(risk_score), 1)                  AS mean_risk_score
+            FROM {rel}
+            GROUP BY app_year
+            ORDER BY app_year
+        ) TO '{rs_csv.replace(chr(92), "/")}' (HEADER, DELIMITER ',')
+    """)
+    print(f"[SAVED] risk_score coverage by year -> {rs_csv}")
+
     # overall risk_score presence, the headline number for the thin-model decision
     overall = con.execute(
         f"SELECT ROUND(100.0*COUNT(risk_score)/COUNT(*), 2) FROM {rel}"
@@ -470,6 +487,29 @@ else:
         for yr, c in con.execute(
             f"SELECT app_year, COUNT(*) FROM {rej} GROUP BY app_year ORDER BY app_year").fetchall():
             print(f"   {yr}: {c:,}")
+
+        # Persist the approved-vs-rejected comparative profile as CSV (key evidence).
+        os.makedirs(REPORTS, exist_ok=True)
+        cmp_csv = os.path.join(REPORTS, "approved_vs_rejected_comparison.csv").replace(chr(92), "/")
+
+        # gather the same numbers already computed above into a tidy table
+        a_amt = con.execute(f"SELECT ROUND(AVG(loan_amnt),2), MEDIAN(loan_amnt) FROM {appr}").fetchone()
+        r_amt = con.execute(f"SELECT ROUND(AVG(amount_requested),2), MEDIAN(amount_requested) FROM {rej}").fetchone()
+        a_dti = con.execute(f"SELECT ROUND(AVG(dti),2), MEDIAN(dti) FROM {appr} WHERE dti BETWEEN 0 AND 100").fetchone()
+        r_dti = con.execute(f"SELECT ROUND(AVG(dti),2), MEDIAN(dti) FROM {rej} WHERE dti BETWEEN 0 AND 100").fetchone()
+
+        rows = [
+            ("amount", "approved", a_amt[0], a_amt[1], "loan_amnt"),
+            ("amount", "rejected", r_amt[0], r_amt[1], "amount_requested"),
+            ("dti",    "approved", a_dti[0], a_dti[1], "LC-computed excl. mortgage"),
+            ("dti",    "rejected", r_dti[0], r_dti[1], "application-time, denied (NOT same basis)"),
+        ]
+        import csv as _csv
+        with open(cmp_csv, "w", newline="", encoding="utf-8") as fh:
+            w = _csv.writer(fh)
+            w.writerow(["metric", "population", "mean", "median", "note"])
+            w.writerows(rows)
+        print(f"[SAVED] approved-vs-rejected comparison -> {cmp_csv}")
 
 # COMMAND ----------
 
