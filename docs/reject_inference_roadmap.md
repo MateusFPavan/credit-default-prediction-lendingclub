@@ -59,7 +59,7 @@ dados brutos na ingestão, Soda para monitoramento contínuo em produção.
 **A pesquisar quando abrir a Fase 2**: implementação concreta do escolhido (provável
 PyDeequ), não só a categoria. Versão atual, integração com Databricks, exemplo de suíte.
 
-## 2. Reject inference (técnica central) — NÃO pesquisado (Fase 2)
+## 2. Reject inference (técnica central) — PESQUISADO (Fase 2), ainda não implementado
 
 **Estado**: categoria conhecida do plano (augmentation, reclassification, parcelling,
 fuzzy), mas as técnicas, suas armadilhas e a literatura atual NÃO foram pesquisadas.
@@ -74,6 +74,82 @@ afeta quais features o thin model pode usar).
 
 **A pesquisar**: estado atual das técnicas de reject inference em crédito, comparação
 honesta entre elas, e como validar que a inferência ajudou em vez de só propagar viés.
+
+**Pesquisa concluída**: ver seção "Fase 2 — método de reject inference (pesquisado, ainda
+não implementado)" logo abaixo. Implementação continua pendente (gatilho não disparado).
+
+## Fase 2 — método de reject inference (pesquisado, ainda não implementado)
+
+Pesquisa feita antes de abrir a Fase 2. Conclusão-chave: a área é DIVIDIDA entre prática de
+mercado (faz reject inference) e ceticismo acadêmico (questiona se funciona). O valor de
+portfólio está em conduzir a Fase 2 CIENTE dessa controvérsia, não aplicando uma técnica
+cegamente.
+
+### As técnicas (o que existe)
+
+- **Augmentation (re-weighting) e Parcelling**: as duas únicas que a literatura crítica NÃO
+  descartou de imediato. Legítimas dependendo da especificação e do mecanismo de
+  missingness. Candidatas para uso.
+- **Fuzzy augmentation, Reclassification, Twins**: mais populares em ferramentas comerciais
+  (SAS, MATLAB), mas uma tese do Inria (Ehrhardt) as considerou inúteis / difíceis de
+  justificar. Usar com ceticismo, ou só como comparação, não como método principal.
+- Todas partem do mesmo esqueleto: treina scorecard nos aprovados, pontua os rejeitados,
+  infere good/bad, recombina e retreina.
+
+### A controvérsia (o que muda a postura)
+
+- **Academia** (Hand & Henley, Inria, pacote R `scoringTools`): reject inference no caso
+  MNAR depende de julgamento de especialista e NÃO pode ser testado; "inferência confiável
+  é impossível; a única abordagem robusta é aceitar uma amostra de rejeitados e observar".
+- **Mercado/regulador**: espera reject inference feito e documentado; não fazer subestima
+  risco por faixa de score.
+- **Resolução para o projeto**: fazer como EXPERIMENTO HONESTO — medir se ajudou, não
+  assumir.
+
+### Achado mais recente e mais relevante (usa o Lending Club!)
+
+Paper "The Illusion of Improvement" (Scarone & Baeza-Yates, arXiv:2606.18479, ECML PKDD
+2026):
+
+- **Modo de falha estrutural**: em ciclo de retreino, acurácia sobe enquanto
+  recall/qualidade de rejeição cai — "ilusão de melhora". Métricas padrão (acurácia/AUC)
+  são ENGANOSAS sob viés de seleção.
+- **Solução proposta**: exploração controlada — aprovar deliberadamente 2-5% dos
+  rejeitados e observar resultado real; basta isso para diagnosticar a severidade do
+  problema.
+- **CRÍTICO para nós**: testaram no Lending Club (entre 3 datasets). No Lending Club, o
+  viés de sobrevivência distorce a métrica em apenas ~2,6% (secundário), vs ~30% em outro
+  dataset. Ou seja: no NOSSO dataset, o efeito de reject inference tende a ser PEQUENO.
+
+### Desenho da Fase 2 (decorrente da pesquisa)
+
+1. Diagnosticar primeiro se o viés sequer importa no Lending Club (esperado: pequeno,
+   ~2,6%). Uma conclusão honesta "efeito marginal, com evidência" vale mais que melhora
+   inflada.
+2. Aplicar augmentation e/ou parcelling (as legítimas), não fuzzy/twins/reclassification
+   como método principal.
+3. NÃO usar acurácia/AUC como métrica de decisão — usar qualidade de rejeição e,
+   idealmente, o enquadramento de exploração controlada. Conecta direto com a métrica de
+   LUCRO que o projeto de crédito já usa (o projeto já rejeita AUC como métrica de
+   decisão).
+4. Validar sob walk-forward (como o resto do projeto), documentando a interação com o
+   risk_score temporalmente ausente (Achado A) e o dti não comparável (Achado B).
+5. Thin model usa features presentes nas duas populações: amount, dti (com ressalva),
+   emp_length, geografia — NÃO risk_score como feature crua.
+
+### Valor de currículo
+
+Transforma a Fase 2 de "apliquei fuzzy augmentation" (ingênuo, o que a academia despreza)
+em "conduzi um estudo honesto sobre se reject inference ajuda no Lending Club, ciente da
+controvérsia, com a metodologia de avaliação correta e validação temporal". A segunda
+versão é a que credencia junto a um time de crédito sério. Referência central e atual:
+arXiv:2606.18479 (2026).
+
+### Ferramentas candidatas (pesquisar implementação na abertura da Fase 2)
+
+- Pacote R `scoringTools` (augmentation, parcelling etc.) — referência de implementação.
+- Em Python, implementar as duas técnicas legítimas manualmente (são simples) ou verificar
+  se há equivalente mantido. Decidir na abertura da fase.
 
 ## 3. Validação/comparação de modelos com viés de seleção — NÃO pesquisado (Fase 3)
 
