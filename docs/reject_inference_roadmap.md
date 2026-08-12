@@ -151,6 +151,94 @@ arXiv:2606.18479 (2026).
 - Em Python, implementar as duas técnicas legítimas manualmente (são simples) ou verificar
   se há equivalente mantido. Decidir na abertura da fase.
 
+## Fase 2 — decisão de implementação (pesquisado)
+
+Não existe biblioteca Python madura/dedicada de reject inference. A única implementação de
+referência é em R: pacote `scoringTools` (augmentation, parcelling, fuzzy,
+reclassification, twins). Em Python não há equivalente mantido.
+
+**ARMADILHA de nomenclatura**: `scikit-fallback` (Python) NÃO serve. É "reject option"
+(modelo se recusar a prever casos ambíguos), coisa diferente de reject inference de
+crédito. Não perder tempo com ele apesar do nome parecido.
+
+**Decisão**: implementar augmentation e parcelling à mão em Python. As técnicas são
+simples (parcelling: pontuar rejeitados com o modelo dos aprovados, binar por faixa de
+score, atribuir good/bad na proporção da taxa de inadimplência esperada por faixa, com
+fator multiplicador conservador — rejeitados devem ter bad rate 2-5x maior que aprovados).
+Implementar na mão FORTALECE o portfólio (mostra domínio do mecanismo, não só chamada de
+API) e dá controle para encaixar na validação walk-forward e na avaliação por LUCRO do
+projeto — coisa que biblioteca pronta não faria.
+
+**Confirmação empírica da escolha de técnica**: estudo com banco de crédito ao consumidor
+francês (Kozodoi/Lessmann et al. e trabalhos correlatos) concluiu que reweighting e
+parcelling produzem resultados mais precisos e relevantes que fuzzy augmentation e a
+correção de dois estágios de Heckman. Ou seja, as duas escolhidas são as que empiricamente
+ganham, não só "as não descartadas".
+
+**Referência de implementação** (consultar, não copiar): `scoringTools` (R) no GitHub,
+para ver como `augmentation()` e `parcelling()` são estruturadas; portar a lógica para
+Python.
+
+## Fase 2 — plano faseado (decidido)
+
+Base Bayesiana do Mateus: conhece o conceito, sem prática recente. Por isso: FASEADO.
+Entrega a 2a (que domina) primeiro; decide a 2b (Bayesiana) depois, com intuição já
+construída pela 2a. Prática antes de teoria pesada.
+
+### Fundamento (achado que ancora tudo — Kozodoi & Lessmann 2025, EJOR)
+
+Testado em dados reais COM grupo de controle sem viés (raro): "reject inference é um
+problema difícil com potencial MODESTO de melhorar o scorecard; tratar o viés de amostragem
+na AVALIAÇÃO é caminho muito mais promissor". Ganho medido: ~8% de lucro ao usar avaliação
+ciente do viés para decidir taxas de aceitação. Ou seja: o ouro está na AVALIAÇÃO, não na
+inferência. Isso alinha 100% com a tese do projeto (lucro > AUC).
+
+### FASE 2a (fazer agora — Mateus domina)
+
+Objetivo: baseline honesto + BASL, medir se inferência ajuda no Lending Club.
+
+1. **Modelo base**: treinar nos aprovados (reusar o XGB do projeto v2.0.0 como ponto de
+   partida; features presentes nas duas populações — amount, dti c/ ressalva, emp_length,
+   geografia; NÃO risk_score cru, ver Achado A).
+2. **Baseline de reject inference**: implementar à mão em Python:
+   - augmentation/parcelling (pontuar rejeitados, binar por score, atribuir good/bad na
+     proporção da bad rate esperada, fator conservador 2-5x).
+3. **BASL (bias-aware self-learning)**: extensão de self-learning com:
+   - estágio de FILTRAGEM (selecionar rejeitados mais confiáveis, não todos),
+   - estágio de ROTULAGEM (rotular os selecionados),
+   - estágio de TREINO (retreinar no conjunto aumentado),
+   - PARADA ANTECIPADA (evitar o feedback loop de degradação). Filosofia BASL: priorizar
+     performance preditiva, NÃO "desviesar" a todo custo.
+4. **Avaliação da 2a**: sob walk-forward (como o resto do projeto), métrica de LUCRO (não
+   AUC). Medir se BASL/parcelling batem o modelo só-aprovados. Resultado esperado: ganho
+   pequeno (Lending Club tem viés ~2,6%, secundário — Scarone & Baeza-Yates 2026).
+   Conclusão honesta de "efeito pequeno, com evidência" é resultado VÁLIDO e sofisticado.
+
+### FASE 2b (decidir depois — exige reaquecer Bayesiano)
+
+Avaliação ciente do viés (o "ouro"). Duas variantes, decidir conforme fôlego:
+
+- **Mínima** (sem Bayesiano pesado): enquadramento de exploração controlada (Scarone &
+  Baeza-Yates 2026) — medir "qualidade de rejeição" além de acurácia; mostrar que avaliação
+  ingênua (AUC no holdout de aprovados) superestima a performance.
+- **Completa** (framework Bayesiano de Kozodoi): avaliação Bayesiana sobre população
+  conjunta aprovados+rejeitados; estimar performance futura real. É o ouro, e o mais caro
+  de aprender (estimativa: 1-2 semanas se reaquecer Bayesiano; 3-6 semanas se do zero).
+  Defender mal é pior que não ter — só ir à completa se der pra explicar com segurança.
+
+### Estimativas de esforço (para planejar)
+
+- 2a completa (baseline + BASL + avaliação por lucro walk-forward): ~alguns dias a 1
+  semana.
+- 2b mínima: poucos dias adicionais.
+- 2b completa (Bayesiano): +1-6 semanas conforme base Bayesiana no momento.
+
+### Regra de ouro do resultado (gerenciar expectativa)
+
+O valor da Fase 2 está no MÉTODO (experimento honesto, avaliação correta), não em provar
+que reject inference é milagroso. Ganho pequeno é o resultado provável e é uma conclusão
+forte quando bem comunicada. Não inflar.
+
 ## 3. Validação/comparação de modelos com viés de seleção — NÃO pesquisado (Fase 3)
 
 **Estado**: não pesquisado.
