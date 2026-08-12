@@ -107,16 +107,32 @@ treino/avaliação diferem por viés de seleção; como reportar o ganho sem sup
   pelo Databricks Free Edition (serverless, gratuito). Os docs que citam "Community
   Edition" precisam trocar para "Free Edition".
 
-**Nota de estado (não confirmada dos números acima)**: a checagem `_corrupt_record` da
-Célula 2 ainda não completou sem erro — bateu em `UNSUPPORTED_FEATURE.QUERY_ONLY_CORRUPT_RECORD_COLUMN`
-do Spark (precisa materializar/`cache()` o DataFrame antes da query de auditoria). O "0
-corrompidas" acima é o resultado esperado com base no diagnóstico de leitura (Etapa
-anterior, script `scratch_reject_parsing_diagnostic.py`), não ainda uma reexecução
-confirmada dentro do notebook principal.
+### Estado da Fase 1: FECHADA
 
-**Pendente de medição na Fase 1** (ainda não rodou): perfil do `Risk_Score` por ano (a
-hipótese é que seja irregular; a Célula 5 mede), volume por safra, e o comparativo
-aprovados vs recusados (Célula 6).
+Fase 1 concluída e commitada localmente (commits 49c2349, 9f7617e, cfa0a70; sem push).
+Tudo rodou limpo de ponta a ponta (notebook `16_reject_ingestion_profile.py`, Células 1-7):
+
+- Ingestão do gzip (27.648.741 linhas) e escrita em Parquet particionado por ano — OK.
+- Auditoria de parsing (`_corrupt_record`): 0 linhas corrompidas após parsing robusto — OK.
+- Perfil de colunas, Risk_Score por ano, comparativo aprovados vs recusados — OK.
+- Dois perfis-chave gravados como CSV em `reports/reject/`
+  (`risk_score_coverage_by_year.csv`, `approved_vs_rejected_comparison.csv`).
+- Manifesto de proveniência gravado (`reports/reject/reject_manifest.json`).
+
+Arquitetura: PySpark (ingestão/escrita) + DuckDB (leitura/perfil local), ver Decisão D.
+
+### Pendente para as próximas etapas (não bloqueia a Fase 1)
+
+- **Validação no Databricks Free Edition**: rodar o mesmo notebook no ambiente Linux
+  serverless, onde o ramo Spark nativo funciona (prova a linha "Databricks" do currículo).
+  Único passo restante para encerrar a Fase 1 por completo.
+- **Fase 2**: geografia dos aprovados (regenerar addr_state do CSV cru para a comparação);
+  técnicas de reject inference (pesquisa dedicada); desenho do thin model considerando o
+  Risk_Score temporalmente ausente (Achado A) e o dti não comparável (Achado B).
+- **Melhoria de eficiência (candidato)**: o notebook reescreve os 27,6M do zero a cada
+  rodada. Separar a ingestão pesada (roda uma vez) das análises leves (leem o Parquet
+  pronto) evitaria reprocessar tudo a cada ajuste — útil na Fase 2, quando a iteração é
+  frequente. Não feito na Fase 1 de propósito (não valia reabrir uma fase fechando).
 
 ## Achados de pesquisa retroativa (feita durante a Fase 1, antes de propagar)
 
