@@ -125,14 +125,37 @@ propagarem para a Fase 2. Três achados, confirmados por fonte independente (est
 usou os mesmos dois datasets Lending Club + dicionário de dados oficial via Kaggle
 jonchan2003).
 
-### A. Risk_Score é majoritariamente ausente nos recusados — CRÍTICO para o thin model
+### A (ATUALIZADO com medição por ano) — risk_score: ausência é TEMPORAL, não uniforme
 
-Fonte independente: ~70% das aplicações recusadas estão SEM Risk Score. A Célula 5 mede o
-número exato no nosso arquivo, mas a ordem de grandeza já é conhecida: é a maioria.
-Implicação: o thin model da Fase 2 NÃO pode depender de Risk_Score como feature principal
-— 70% de ausência inviabiliza. O desenho do thin model precisa se apoiar nas features
-presentes em ambas as populações e quase sempre preenchidas (amount, dti, emp length,
-geografia). Registrar antes de modelar, para não descobrir na hora.
+Medido na Fase 1 (Célula 5, DuckDB): risk_score presente em 33,1% dos recusados no
+agregado (66,9% ausente), MAS a cobertura NÃO é uniforme no tempo:
+
+- 86% presente até 2014
+- despenca para 17,85% em 2015
+- ~54% em 2017
+- 6,83% em 2018
+
+Isto é mais crítico que o "70% ausente" agregado (a estimativa de fonte independente que
+motivou este achado originalmente). Duas consequências para a Fase 2:
+
+1. risk_score É utilizável nas safras antigas (<=2014), onde está quase completo — não é
+   uma feature descartável, é uma feature com disponibilidade dependente de época. Abre uma
+   opção de desenho que o número agregado tinha fechado.
+2. ALERTA de validação temporal. O projeto usa validação walk-forward (treina no passado,
+   testa no futuro). risk_score é rico nas safras antigas (treino) e quase vazio nas
+   recentes (teste). Usá-lo como feature no thin model cria uma feature cuja disponibilidade
+   MUDA entre treino e teste — quebra silenciosamente a validação temporal. Se for usado,
+   tem que ser com tratamento explícito de ausência por época (flag + sentinela, como o
+   projeto já faz para rollouts de bureau nos aprovados), NUNCA como feature crua assumida
+   presente.
+
+Decisão a tomar na Fase 2 (não agora): ou (a) excluir risk_score do thin model e usar só
+features presentes em ambas as épocas (amount, dti com ressalva, emp_length, geografia), ou
+(b) incluí-lo com mecanismo de ausência temporal explícito e checar se sobrevive à
+validação walk-forward. Pesquisar na abertura da Fase 2, junto com as técnicas de reject
+inference.
+
+Dados por ano: `reports/reject/risk_score_coverage_by_year.csv` (versionado no repo).
 
 ### B. `dti` NÃO é diretamente comparável entre aprovados e recusados — evita erro silencioso
 
@@ -154,11 +177,74 @@ Dicionário LC: tempo de emprego em anos, 0 a 10 (0 = menos de 1 ano, 10 = 10+).
 recusados usam o mesmo formato textual ("< 1 year", "10+ years"). Comparável, com atenção
 só ao parsing texto->número. Sem ressalva metodológica além do parsing.
 
+### E. Geografia: feature candidata forte, mas comparação adiada para a Fase 2
+
+- **Recusados**: têm `state`, raramente nulo (medido na Célula 6). Dimensão presente e
+  quase completa.
+- **Aprovados**: `addr_state` foi descartada de `loans_clean.parquet` na classificação do
+  notebook 03 (não era feature do modelo de aprovados). O dado existe no CSV cru
+  (`accepted_*.csv`), mas não no parquet limpo.
+- **Implicação para a Fase 2**: geografia é feature candidata FORTE para o thin model —
+  presente e quase completa em ambas as populações, diferente de `risk_score` (66,9%
+  ausente nos recusados, ver Achado A). Ao montar o dataset de modelagem na Fase 2,
+  regenerar `addr_state` dos aprovados a partir do CSV cru para permitir a comparação e o
+  uso como feature.
+- **Nesta fase (1)**: perfilada só a geografia dos recusados. Comparação
+  aprovados-vs-recusados adiada, por decisão de escopo (Fase 1 é descritiva).
+
+### Números medidos que fecham a Fase 1 (confirmados no nosso arquivo)
+
+- risk_score presente em 33,1% dos recusados (66,9% ausente) — confirma Achado A; thin
+  model NÃO pode depender de risk_score.
+- Valor solicitado quase idêntico: aprovados mean 13.091 / mediana 11.000; recusados mean
+  13.133 / mediana 10.000. Não é o valor pedido que separa as populações.
+- DTI diverge (recusados 26,58 vs aprovados 17,55 de média), consistente com a base de
+  cálculo diferente (Achado B) — ler como forma, não escala idêntica.
+- Auditoria de parsing: 0 linhas corrompidas em 27.648.741.
+
+Dados: `reports/reject/approved_vs_rejected_comparison.csv` (versionado no repo).
+
 ## Confirmações que fortalecem o projeto
 
 Proporção ~41x (27,6M recusados : 673k aprovados) confirmada por estudo independente (81%
 recusados após limpeza, 93% antes). O argumento de volume para Spark é real e documentado
 por terceiros, não artefato nosso.
+
+## Decisões de arquitetura
+
+### D. Híbrido Spark + DuckDB (ingestão vs análise local) — DECIDIDO e aplicado
+
+**Contexto**: rodando local no Windows, a escrita nativa de Parquet do Spark e depois a
+leitura de volta (`spark.read.parquet`) falham por falta de `winutils.exe`/`HADOOP_HOME`
+(a camada de listagem de diretório do Hadoop). Instalar winutils foi rejeitado (binário de
+terceiro, frágil, e resolveria só o sintoma).
+
+**Decisão**: arquitetura híbrida, cada ferramenta onde é melhor.
+
+- PySpark faz a ingestão do gzip e a escrita particionada. Roda nativo no Databricks
+  (Linux, Hadoop configurado); no local, a escrita é feita via pyarrow (Arrow, sem dicts
+  Python, fatiando anos grandes por mês para não estourar heap).
+- DuckDB faz leitura, perfil e agregações locais sobre o Parquet particionado, com
+  `hive_partitioning=true` sobre o layout `app_year=XXXX/part-*.parquet`. Single-node,
+  streaming (dados maiores que a RAM), zero dependência de Hadoop/JVM.
+
+**Por que é boa prática, não gambiarra**: Spark é a ferramenta certa para ingestão em
+escala e escrita distribuída; DuckDB é a ferramenta certa para análise local sobre Parquet
+num único nó. Forçar o Spark a fazer no Windows algo que ele faz mal ali, só para usar uma
+ferramenta só, seria pior. "Spark para ingestão em escala, DuckDB para análise local" é uma
+decisão de arquitetura defensável e alinhada ao que o mercado de dados vem adotando.
+
+**Efeito no currículo** (quando a fase fechar): linha honesta "PySpark para ingestão
+particionada em escala e DuckDB para análise sobre Parquet", ancorada em código real no
+GitHub. NÃO alegar domínio de nenhuma das duas — uso real neste projeto, no padrão de
+honestidade do resto do portfólio (linha defensável, com prova, sem inflar).
+
+**Pré-requisito técnico registrado**: `duckdb` instalado via pip no `.venv` (pip puro, sem
+binário de terceiro). No Databricks, o ramo Spark é usado; DuckDB é o caminho local.
+
+**Se esta decisão sumir do contexto**: ao reencontrar o erro de winutils na
+leitura/escrita de Parquet no Windows, NÃO instalar winutils — usar DuckDB
+(leitura/análise) e pyarrow (escrita), que é o caminho já validado nesta fase.
 
 ## Checagens de repo pendentes (leitura de código, feitas pelo Claude Code)
 
