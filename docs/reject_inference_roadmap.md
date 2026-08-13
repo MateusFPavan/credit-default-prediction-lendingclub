@@ -507,3 +507,71 @@ recusados:aprovados. O número errado não está neste repositório — nenhum d
 inference é trabalho novo iniciado nesta Fase 1. O documento de decisão que contém o
 "~12x" vive fora deste repositório (provavelmente na sessão/planejamento externo de onde
 este roadmap também veio) — precisa ser localizado e corrigido lá, não aqui.
+
+## Fase 2a — Bloco 1 (thin model + parcelling): decisões e estado
+
+Implementação: `notebooks/17_reject_thin_model.py`. Thin model = Logistic Regression nas
+3 features compartilhadas entre aprovados e recusados (`amount`, `dti`, `emp_length`).
+Reject inference por parcelling, com varredura de faixas × multiplicador (nunca valor
+fixo — labels dos recusados são desconhecidos por construção).
+
+### Decisão (PARCIAL): tratamento do dti dos recusados e uso das flags
+
+**Contexto**: dti dos recusados tem 4 mecanismos distintos, diagnosticados e medidos via
+DuckDB sobre `dti_raw` cru (scratch, não versionado):
+
+- `-1%` (1.203.063 / 4,35%): sentinela "não informado" (MNAR). Tratamento: flag
+  `dti_missing` + imputa mediana (20,05). Defesa: mesma convenção `-1` que o projeto já
+  usa em `emp_length_anos`.
+- `100%` (1.362.556 / 4,93%): censura à direita (dti ≥ 100%; pico de ~170x a
+  vizinhança 95-105). Tratamento: flag `dti_censored`, mantém 100 como piso. Defesa:
+  censura em FEATURE → flag indicador é o correto (Tobit seria para alvo censurado, não
+  feature); preserva o sinal de risco extremo sem inventar a magnitude real.
+- `9999/99999/199998%` (~84.027 / 0,3%): sentinela redundante. Tratamento: DESCARTADO.
+  Defesa: 0,3% do total, mecanismo "não informado" já coberto pelo `-1`; não forçar
+  tratamento por completude.
+- Cauda 100-1000 real (~638.853) e dti válido [0,100): MANTIDOS como estão. Defesa: dado
+  legítimo (dívida alta é motivo plausível de recusa).
+
+Resultado: recuperou 1.927.007 recusados que o filtro cego do Bloco 1b (dti>100 →
+descarte + winsorize p99) teria descartado sem necessidade. População tratada:
+27.564.714 (de 27.648.741 brutos).
+
+**Decisão sobre as flags no modelo** (medição própria, Bloco 1c): `dti_missing` e
+`dti_censored` são INERTES no thin model — coeficiente = 0.0 — porque o thin model
+treina só nos aprovados, onde as duas flags são sempre 0 (sem variância, sem gradiente
+pra Logistic Regression aprender). É uma assimetria estrutural do reject inference:
+informação que só existe nos recusados não pode ser aprendida por um modelo treinado
+só em aprovados. Por isso (Bloco 1d): as flags SAÍRAM das features do thin model
+(voltou a 3 features) e ENTRARAM no parcelling como ajuste de multiplicador por grupo
+(`censored_extra`, aplicado só a `dti_censored=1`).
+
+**Decisão sobre `censored_extra`: HIPÓTESE, parcialmente testada.**
+
+Critério de aceite (definido antes do teste): (i) o multiplicador muda o resultado
+inferido? (ii) isso melhora o lucro?
+
+- Teste (i) — PASSOU: `bad_rate` do grupo censored responde de forma proporcional a
+  `censored_extra` (varredura 3×3×3 — faixas × base_mult × censored_extra — em
+  `notebooks/17_reject_thin_model.py`; proporcionalidade verificada numericamente,
+  ex. `0.3233 × 1.25 ≈ 0.4041` medido `0.4043`).
+- Achado que qualifica o teste: mesmo com `censored_extra=1.0` (sem boost), o grupo
+  censored já sai ~20% acima da bad rate geral, porque `dti=100` empurra essas linhas
+  para bandas de score piores sozinho (coeficiente de `dti` é positivo no thin model).
+  Ou seja, o valor `dti=100` já carrega parte do sinal; `censored_extra` amplifica, não
+  cria do zero.
+- Questão aberta (a validar com lucro): `censored_extra` agrega ALÉM do que `dti=100`
+  já dá, ou é redundante com ele? Se o lucro com `censored_extra=1.0` for igual ao lucro
+  com `1.5`, a flag é peso morto no parcelling e deve ser removida — regra do projeto:
+  não forçar tratamento que não agrega.
+- Teste (ii) — PENDENTE até a avaliação por lucro (CI-EX/Kickout, bloco futuro).
+  **Decisão não fechada.**
+
+**Estado atual**: infraestrutura commitada localmente (`feat(reject): flags dti como
+metadado do parcelling + varredura tripla`, sem push). O VALOR final de `censored_extra`
+fica em aberto — só a avaliação por lucro decide, não este bloco. Pendências registradas
+para os próximos blocos:
+- Estender a varredura do multiplicador base para 3-5x (literatura SAS/Altair aponta
+  faixa 2-5x para parcelling; hoje testado só até 2.0).
+- Rodar o critério (ii) assim que CI-EX/Kickout entrarem, e então decidir manter ou
+  remover `censored_extra` do parcelling.
