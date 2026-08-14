@@ -659,3 +659,38 @@ de flag sem o teste do lucro; não manter flag que não agregar.
 **Estado**: qualidade de dado das 4 features compartilhadas — FECHADA. Próximo: encoding
 de `state` (4ª feature) e/ou avaliação por lucro (resolve o roteamento das flags e o
 valor do multiplicador).
+
+### Fase 2a — avaliação por lucro (implementada e validada)
+
+Métrica de lucro honesta implementada (`notebooks/18_profit_evaluation.py`), substituindo
+o cálculo simplificado (LGD=100% implícito). Fórmula Kozodoi (arXiv 2407.13009):
+`profit = PD·A·(1+i)·(1−LGD) + (1−PD)·A·(1+i) − A`, com LGD VARRIDA (0.5..0.9).
+
+**Validação** (Etapa 1, byte a byte): rodada nos aprovados reproduz EXATAMENTE o número
+publicado — lucro @0.31 = 242.230.710,89 (idêntico a `docs/FACTS.md`), e threshold ótimo
+0.26 em LGD=0.5 (idêntico ao 0.26 já conhecido do projeto). Confirma que a fórmula nova +
+pipeline de scoring estão corretos. v2.0.0 publicado permanece intocado; a Fase 2 usa
+esta métrica para todos os seus modelos (baseline recalculado internamente).
+
+**Comparação entre modelos** (Etapa 3, corrigida — Bloco 7b): comparar por threshold
+numérico comum é INVÁLIDO entre escalas diferentes (XGB 79 features vs thin model 3
+features) — confirmado empiricamente na primeira tentativa (100% dos recusados
+"aceitos" a 0.26, implausível). Correção: comparar à MESMA TAXA DE ACEITAÇÃO (cada
+modelo escolhe quais X% aceitar pela própria escala) — comparação justa, isola qualidade
+da decisão do volume de aceitação. Defesa: KNIME / Verbraken 2014 (threshold é
+propriedade de cada modelo). Complemento: threshold ótimo por modelo (teto de cada um).
+Esta comparação foi o que resolveu o teste (ii) do `censored_extra` (ver decisão do
+Bloco 1d, acima — REMOVIDO).
+
+**Limitações registradas** (honestidade):
+- Recusados não têm taxa `i` (nunca viraram empréstimo): `i` é PREMISSA (banda de score
+  equivalente dos aprovados, split `train`).
+- Recusados não têm label real: lucro deles é CENÁRIO ("se aceitos"), não medida.
+- Teto de precisão: usamos lucro esperado com LGD varrida (nível Kozodoi), NÃO o NAR de
+  fluxo de caixa mensal descontado (exigiria cronograma de pagamento individual, ausente
+  nos dados). Fingir NAR completo sem os dados seria desonesto.
+
+**Estado**: infra de lucro validada e commitada
+(`feat(reject): avaliacao por lucro (formula Kozodoi, LGD varrida, comparacao a taxa
+fixa)`, sem push). Próximo: comparação principal baseline vs parcelling vs CI-EX à taxa
+de aceitação fixa, com Kickout/AUK.
