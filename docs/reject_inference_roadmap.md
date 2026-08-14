@@ -546,30 +546,40 @@ só em aprovados. Por isso (Bloco 1d): as flags SAÍRAM das features do thin mod
 (voltou a 3 features) e ENTRARAM no parcelling como ajuste de multiplicador por grupo
 (`censored_extra`, aplicado só a `dti_censored=1`).
 
-**Decisão sobre `censored_extra`: HIPÓTESE, parcialmente testada.**
+**Decisão sobre `censored_extra`: FECHADA — REMOVIDO (Bloco 8).**
 
 Critério de aceite (definido antes do teste): (i) o multiplicador muda o resultado
 inferido? (ii) isso melhora o lucro?
 
 - Teste (i) — PASSOU: `bad_rate` do grupo censored responde de forma proporcional a
   `censored_extra` (varredura 3×3×3 — faixas × base_mult × censored_extra — em
-  `notebooks/17_reject_thin_model.py`; proporcionalidade verificada numericamente,
-  ex. `0.3233 × 1.25 ≈ 0.4041` medido `0.4043`).
+  `notebooks/17_reject_thin_model.py`, versão pré-Bloco-8; proporcionalidade verificada
+  numericamente, ex. `0.3233 × 1.25 ≈ 0.4041` medido `0.4043`).
 - Achado que qualifica o teste: mesmo com `censored_extra=1.0` (sem boost), o grupo
   censored já sai ~20% acima da bad rate geral, porque `dti=100` empurra essas linhas
   para bandas de score piores sozinho (coeficiente de `dti` é positivo no thin model).
   Ou seja, o valor `dti=100` já carrega parte do sinal; `censored_extra` amplifica, não
   cria do zero.
-- Questão aberta (a validar com lucro): `censored_extra` agrega ALÉM do que `dti=100`
-  já dá, ou é redundante com ele? Se o lucro com `censored_extra=1.0` for igual ao lucro
-  com `1.5`, a flag é peso morto no parcelling e deve ser removida — regra do projeto:
-  não forçar tratamento que não agrega.
-- Teste (ii) — PENDENTE até a avaliação por lucro (CI-EX/Kickout, bloco futuro).
-  **Decisão não fechada.**
+- Teste (ii) — RODADO (Bloco 7/7b, `notebooks/18_profit_evaluation.py`, Etapa 3b:
+  comparação de lucro à TAXA DE ACEITAÇÃO FIXA — comparação justa entre estratégias,
+  corrige uma primeira tentativa inválida que comparava threshold numérico entre modelos
+  de escalas diferentes). **REPROVOU**: diferença de lucro `com_censored − sem_censored`
+  = **0,00 em todas as 24 combinações testadas** (2 `base_mult` × 3 LGD × 4 taxas de
+  aceitação). Causa medida: à taxa de aceitação fixa aceitam-se os de MENOR PD; os
+  censored já são empurrados ao pior risco pelo valor `dti=100` + `base_mult`, então
+  nunca entram no grupo aceito — o multiplicador extra só atua sobre empréstimos já
+  rejeitados, nunca muda o lucro observado.
+- **Decisão**: `censored_extra` REMOVIDO do parcelling (Bloco 8,
+  `notebooks/17_reject_thin_model.py`) — regra do projeto: não manter flag que não
+  agrega. A flag `dti_censored` continua no dataframe como metadado documental (registra
+  o mecanismo), mas não é mais argumento do parcelling. O mesmo raciocínio ("sinal já no
+  valor, multiplicador é redundante") se estende por analogia às flags de missing
+  (`dti_missing`, `emp_length_missing`) — nenhuma das três é roteada como multiplicador.
+  Nota de portfólio: a disciplina do projeto não fechou no teste fácil (bad rate) —
+  esperou o teste que importa (lucro) antes de decidir.
 
-**Estado atual**: infraestrutura commitada localmente (`feat(reject): flags dti como
-metadado do parcelling + varredura tripla`, sem push). O VALOR final de `censored_extra`
-fica em aberto — só a avaliação por lucro decide, não este bloco.
+**Estado**: infraestrutura simplificada e commitada localmente (parcelling volta a UM
+multiplicador, `base_mult`, faixa 1.0-3.0 do Bloco 3), sem push.
 
 ### Bloco 2 — varredura estendida do multiplicador base (1-5x) e o que deu errado
 
@@ -601,14 +611,16 @@ Miner — "Event Rate Increase"; Altair/RapidMiner 2022; Hugo Lopes 2018):
   em torno da faixa plausível.
 
 **Decisão corrigida**: varredura útil de `base_mult` = `{1.0, 1.5, 2.0, 2.5, 3.0}`
-(`notebooks/17_reject_thin_model.py`, `sweep_grouped`). `{4.0, 5.0}` ficam registrados
-aqui como "testado, satura, implausível para este dataset" — resultado honesto, não
-descartado do histórico, só fora da varredura padrão. O multiplicador continua sendo
-análise de sensibilidade, não um valor fechado — a conclusão do projeto é sobre COMO o
-resultado varia com a premissa, não sobre um "valor certo" de multiplicador.
+(`notebooks/17_reject_thin_model.py`, `sweep` — simplificado no Bloco 8, ver adiante).
+`{4.0, 5.0}` ficam registrados aqui como "testado, satura, implausível para este
+dataset" — resultado honesto, não descartado do histórico, só fora da varredura padrão.
+O multiplicador continua sendo análise de sensibilidade, não um valor fechado — a
+conclusão do projeto é sobre COMO o resultado varia com a premissa, não sobre um "valor
+certo" de multiplicador.
 
-**Pendência**: rodar o critério (ii) de `censored_extra` (efeito no lucro) assim que
-CI-EX/Kickout entrarem, e então decidir manter ou remover a flag do parcelling.
+**Pendência resolvida** (Bloco 7/7b/8): o critério (ii) de `censored_extra` rodou —
+reprovou (diferença de lucro 0,00 em 24 combinações) — e a flag foi removida do
+parcelling. Ver decisão atualizada do Bloco 1d, acima.
 
 ### Fase 2a — tratamento das features compartilhadas dos recusados (COMPLETO)
 

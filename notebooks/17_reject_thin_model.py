@@ -84,6 +84,23 @@
 #   pico de censura, distribuicao de numeros redondos humana normal) -- so filtro simples:
 #   amount<=0 e logicamente impossivel (1.288 linhas, 0,005%), investigar mais seria
 #   cerimonia, nao rigor.
+#
+# Bloco 8 (REMOVE censored_extra, introduzido no 1d): teste (ii) do Bloco 1d rodado em
+#   notebooks/18_profit_evaluation.py (Etapa 3b, comparacao por LUCRO a taxa de aceitacao
+#   fixa -- comparacao justa entre estrategias, ver Bloco 7b). Resultado: diferenca
+#   com_censored - sem_censored = 0,00 em TODAS as 24 combinacoes testadas (2 base_mult x
+#   3 LGD x 4 taxas). Causa medida: a taxa de aceitacao fixa aceita os de MENOR PD: os
+#   censored (dti>=100%) ja sao empurrados ao pior risco pelo VALOR dti=100 (Bloco 1c) +
+#   base_mult, entao nunca entram no grupo aceito -- o multiplicador extra so atua sobre
+#   emprestimos ja rejeitados, nunca muda o lucro. O sinal da censura ja esta no VALOR;
+#   o multiplicador em cima e redundante. Teste (i) (bad rate) tinha passado -- a
+#   disciplina do projeto e nao fechar no teste facil, so no que importa (lucro).
+#   Decisao: REMOVIDO. Parcelling volta a UM multiplicador (base_mult), mantendo a faixa
+#   corrigida do Bloco 3 (1.0-3.0). As flags (dti_missing, dti_censored,
+#   emp_length_missing) continuam no dataframe como METADADO documental -- registram o
+#   mecanismo e ja atuam via o VALOR tratado -- mas nenhuma vira multiplicador no
+#   parcelling. Ver docs/reject_inference_roadmap.md, decisao do Bloco 1d atualizada
+#   para FECHADA.
 
 import sys
 from pathlib import Path
@@ -243,20 +260,16 @@ def train_thin_model(X, y):
     return model
 
 
-# --- Parcelling (1d): multiplicador base + multiplicador ADICIONAL para censored ---
-def parcelling_labels_grouped(model, X_appr, y_appr, X_rej, rej_flags,
-                               n_bands, base_mult, censored_extra):
+# --- Parcelling (Bloco 8: simplificado, censored_extra removido -- nao agregava lucro) ---
+def parcelling_labels(model, X_appr, y_appr, X_rej, n_bands, base_mult):
     """
-    Parcelling com multiplicador de bad rate ajustado por grupo.
-    - base_mult: multiplicador aplicado a todos os recusados (varrido: 1.0-3.0,
-      Bloco 3 -- faixa CORRIGIDA e plausivel pra este dataset, calibrada pela razao
-      real bad rate aprovados/recusados, nao um chute cego no range 1-5 da literatura
-      generica. Ver docs/reject_inference_roadmap.md, secao Fase 2a, "correcao do
-      multiplicador". 4.0/5.0 foram testados no Bloco 2 e saturam a bad_rate_censored
-      em 1.0 e produzem bad_rate geral ~70% -- implausivel, mantido so como registro).
-    - censored_extra: multiplicador ADICIONAL para recusados com dti_censored=1
-      (varrido: 1.0 = sem efeito, 1.25, 1.5). censored_extra=1.0 recupera o caminho (b).
-    rej_flags: DataFrame alinhado a X_rej com coluna 'dti_censored' (0/1).
+    Parcelling com UM multiplicador de bad rate, aplicado uniformemente por banda.
+    - base_mult: varrido 1.0-3.0 (faixa CORRIGIDA e plausivel pra este dataset, Bloco 3
+      -- calibrada pela razao real bad rate aprovados/recusados, nao um chute cego no
+      range 1-5 da literatura generica. Ver docs/reject_inference_roadmap.md, secao
+      Fase 2a, "correcao do multiplicador". 4.0/5.0 testados no Bloco 2, saturam e
+      produzem bad_rate geral ~70% -- implausivel, mantido so como registro).
+    Sem censored_extra (Bloco 8: removido, teste de lucro reprovou -- ver cabecalho).
     """
     p_appr = model.predict_proba(X_appr)[:, 1]
     p_rej = model.predict_proba(X_rej)[:, 1]
@@ -270,41 +283,32 @@ def parcelling_labels_grouped(model, X_appr, y_appr, X_rej, rej_flags,
         m = appr_band == b
         band_bad[b] = y_appr[m].mean() if m.sum() > 0 else y_appr.mean()
 
-    censored = rej_flags["dti_censored"].to_numpy()
     rng = np.random.default_rng(42)
-    inferred = np.empty(len(X_rej), dtype=int)
-    for i, b in enumerate(rej_band):
-        mult = base_mult * (censored_extra if censored[i] == 1 else 1.0)
-        p_bad = min(band_bad[b] * mult, 1.0)
-        inferred[i] = int(rng.random() < p_bad)
+    inferred = np.array([
+        int(rng.random() < min(band_bad[b] * base_mult, 1.0)) for b in rej_band
+    ])
     return inferred, band_bad
 
 
-# --- Varredura tripla: faixas x base_mult x censored_extra ---------------------
-def sweep_grouped(model, X_appr, y_appr, X_rej, rej_flags,
-                   bands_list=(5, 10, 20),
-                   base_list=(1.0, 1.5, 2.0, 2.5, 3.0),
-                   censored_extra_list=(1.0, 1.25, 1.5)):
-    """censored_extra=1.0 e o controle (equivale a NAO tratar o censored -> caminho b)."""
-    print(f"{'faixas':>7}{'base':>6}{'cens_x':>8}{'bad_rate':>12}{'bad_rate_censored':>20}")
+# --- Varredura dupla: faixas x base_mult -----------------------------------------
+def sweep(model, X_appr, y_appr, X_rej,
+          bands_list=(5, 10, 20), base_list=(1.0, 1.5, 2.0, 2.5, 3.0)):
+    print(f"{'faixas':>7}{'base':>6}{'bad_rate_inferida':>20}")
     results = {}
-    cens_mask = rej_flags["dti_censored"].to_numpy() == 1
     for nb in bands_list:
         for base in base_list:
-            for cx in censored_extra_list:
-                inf, _ = parcelling_labels_grouped(model, X_appr, y_appr, X_rej,
-                                                    rej_flags, nb, base, cx)
-                overall = float(inf.mean())
-                cens_rate = float(inf[cens_mask].mean()) if cens_mask.any() else float("nan")
-                results[(nb, base, cx)] = (overall, cens_rate)
-                print(f"{nb:>7}{base:>6}{cx:>8}{overall:>12.4f}{cens_rate:>20.4f}")
-    print("\n[TESTE censored] Se a coluna bad_rate_censored NAO mudar com cens_x, "
-          "a flag censored nao agrega -> voltar ao caminho (b).")
+            inferred, _ = parcelling_labels(model, X_appr, y_appr, X_rej, nb, base)
+            rate = float(inferred.mean())
+            results[(nb, base)] = rate
+            print(f"{nb:>7}{base:>6}{rate:>20.4f}")
+    vals = list(results.values())
+    print(f"\n[ESTABILIDADE] bad rate inferida varia de {min(vals):.4f} a {max(vals):.4f} "
+          f"(amplitude {max(vals)-min(vals):.4f})")
     return results
 
 
 if __name__ == "__main__":
-    print("[Fase 2a - Bloco 6] thin model (3 features) -- qualidade de dado das 4 features fechada")
+    print("[Fase 2a - Bloco 8] parcelling simplificado (censored_extra removido, nao agregava lucro)")
 
     print("\nCarregando aprovados (split 'train')...")
     X_appr, y_appr, issue_d_appr = load_approved_shared()
@@ -314,7 +318,8 @@ if __name__ == "__main__":
     print("\nCarregando recusados (Parquet particionado, 27.648.741 linhas esperadas)...")
     X_rej, rej_flags, rej_counts = load_rejected_shared()
     print(f"  {len(X_rej):,} linhas | censored (dti>=100%): {int(rej_flags['dti_censored'].sum()):,}"
-          f" | emp_length_missing: {int(rej_flags['emp_length_missing'].sum()):,}")
+          f" | emp_length_missing: {int(rej_flags['emp_length_missing'].sum()):,}"
+          f" (flags mantidas como metadado, nao roteadas no parcelling -- Bloco 8)")
     print(X_rej.describe())
 
     print("\nTreinando thin model (Logistic Regression, 3 features -- flags fora)...")
@@ -322,7 +327,7 @@ if __name__ == "__main__":
     coefs = dict(zip(SHARED, thin.named_steps["clf"].coef_[0]))
     print("  Coeficientes (padronizados):", coefs)
 
-    print("\nRodando varredura tripla de parcelling (faixas x base_mult x censored_extra)...")
-    res = sweep_grouped(thin, X_appr, y_appr, X_rej, rej_flags)
+    print("\nRodando varredura de parcelling (faixas x base_mult, sem censored_extra)...")
+    res = sweep(thin, X_appr, y_appr, X_rej)
 
-    print("\n[Fase 2a - Bloco 6] concluido.")
+    print("\n[Fase 2a - Bloco 8] concluido.")
