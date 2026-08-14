@@ -569,9 +569,81 @@ inferido? (ii) isso melhora o lucro?
 
 **Estado atual**: infraestrutura commitada localmente (`feat(reject): flags dti como
 metadado do parcelling + varredura tripla`, sem push). O VALOR final de `censored_extra`
-fica em aberto — só a avaliação por lucro decide, não este bloco. Pendências registradas
-para os próximos blocos:
-- Estender a varredura do multiplicador base para 3-5x (literatura SAS/Altair aponta
-  faixa 2-5x para parcelling; hoje testado só até 2.0).
-- Rodar o critério (ii) assim que CI-EX/Kickout entrarem, e então decidir manter ou
-  remover `censored_extra` do parcelling.
+fica em aberto — só a avaliação por lucro decide, não este bloco.
+
+### Bloco 2 — varredura estendida do multiplicador base (1-5x) e o que deu errado
+
+Estendida a varredura de `base_mult` até 5.0 (literatura genérica de credit scoring
+sugere faixa 2-5x). Achado: em `base_mult ∈ {4.0, 5.0}`, a `bad_rate_censored` satura em
+1.0000 (o multiplicador some do resultado, deixa de ser informativo) e a `bad_rate`
+GERAL da população recusada inteira chega a ~70-72% — implausível como leitura real de
+risco. Causa: o multiplicador é aplicado uniformemente em toda banda de score (inclusive
+as bandas melhores), então em valores altos estoura o teto de 1.0 mesmo onde não devia.
+
+### Bloco 3 — correção: o multiplicador deve ser CALIBRADO, não varrido às cegas
+
+A varredura 1-5x do Bloco 2 tratou o range da literatura como um chute a explorar. Isso
+estava errado na premissa, não só no resultado. Releitura da literatura (SAS Enterprise
+Miner — "Event Rate Increase"; Altair/RapidMiner 2022; Hugo Lopes 2018):
+
+- O multiplicador por banda de score está certo mecanicamente (Altair confirma "2-5x na
+  banda equivalente").
+- Mas o SAS calibra o valor pelo dado: no exemplo deles, bad rate aprovados 8% → bad
+  rate recusados observada 13% ⇒ fator ~1.5 (8%×1.5≈12%≈13%). O fator reflete a razão
+  REAL medida entre as populações, não um número escolhido no vácuo dentro de "2 a 5".
+- Para este projeto: bad rate dos aprovados = 12,43%. Um multiplicador plausível fica em
+  ~1.5-2.5 (bad rate recusados equivalente: 18-31%). Acima disso — os 4.0/5.0 testados no
+  Bloco 2 — a leitura deixa de ser plausível para o Lending Club, e a saturação vista não
+  é o método quebrando, é o input (multiplicador) sendo implausível.
+- Limitação honesta e permanente: diferente do Hugo Lopes 2018 (que tinha os labels reais
+  dos recusados e pôde escolher o fator por AUC), este projeto NÃO tem os labels reais.
+  Não é possível calibrar o fator "certo" empiricamente aqui — só mostrar sensibilidade
+  em torno da faixa plausível.
+
+**Decisão corrigida**: varredura útil de `base_mult` = `{1.0, 1.5, 2.0, 2.5, 3.0}`
+(`notebooks/17_reject_thin_model.py`, `sweep_grouped`). `{4.0, 5.0}` ficam registrados
+aqui como "testado, satura, implausível para este dataset" — resultado honesto, não
+descartado do histórico, só fora da varredura padrão. O multiplicador continua sendo
+análise de sensibilidade, não um valor fechado — a conclusão do projeto é sobre COMO o
+resultado varia com a premissa, não sobre um "valor certo" de multiplicador.
+
+**Pendência**: rodar o critério (ii) de `censored_extra` (efeito no lucro) assim que
+CI-EX/Kickout entrarem, e então decidir manter ou remover a flag do parcelling.
+
+### Fase 2a — tratamento das features compartilhadas dos recusados (COMPLETO)
+
+Exploração de exceção feita em TODAS as 4 features (regra: investigar antes de tratar; só
+trata quem tem mecanismo). Resultado:
+
+- **dti** (tratado, Bloco 1c/1d): 4 mecanismos. -1 (1,2M) = missing MNAR → flag+mediana;
+  100 (1,36M) = censura à direita → flag+piso; 9999/99999/199998 (84K) = sentinela
+  redundante → descartado; cauda 100-1000 real = mantida. Defesa: convenção -1 do
+  projeto; censura em feature → flag (não Tobit); não forçar tratamento em sentinela
+  redundante.
+- **emp_length** (tratado, Bloco 4): escala 0-10 + sentinela -1 + flag
+  `emp_length_missing`, seguindo a convenção EXATA do projeto (`emp_length_anos` nos
+  aprovados, 0 mismatches). `< 1 year` (83%) MANTIDO como sinal real. Defesa: Fed de
+  Filadélfia (Jagtiani/Lam) — tempo de emprego é 88% da importância na recusa; emprego
+  curto → recusa é o mecanismo causal, não anomalia. Tratar como missing destruiria a
+  variável mais preditiva.
+- **amount** (tratado, Bloco 6): sem mecanismo. Só filtro `amount<=0` (1.288, 0,005%).
+  Defesa: `<=0` é logicamente impossível; sem sentinela; investigação seria cerimônia,
+  não rigor.
+- **state** (sem tratamento): 51 valores = 50 estados + DC, 22 nulos (0,00008%), zero
+  inválidos/territórios. Limpo. Encoding (não tratamento) a decidir quando virar feature
+  (51 categorias: one-hot puro é grande demais → considerar target/WoE encoding).
+  CONTEXTO registrado: Iowa aparece só 456x (100x abaixo do esperado) — fato REGULATÓRIO
+  (LC historicamente não operava em Iowa por lei estadual), NÃO erro de dado.
+
+**Flags disponíveis, roteamento PENDENTE do lucro**: três flags existem como metadado,
+ainda não fechadas como uso: `dti_missing`, `dti_censored`, `emp_length_missing`. Decisão
+registrada (Bloco 1d): só a avaliação por LUCRO decide se cada uma agrega. Hipótese
+atual: flags de MISSING (`dti_missing`, `emp_length_missing`) provavelmente NÃO devem
+virar multiplicador de risco (missing = incerteza, não risco direcional); flag de
+CENSURA (`dti_censored`) tem justificativa direcional (dti≥renda = risco alto) e passou
+no teste (i) da bad rate, mas o teste (ii) do lucro segue pendente. Regra: não fechar uso
+de flag sem o teste do lucro; não manter flag que não agregar.
+
+**Estado**: qualidade de dado das 4 features compartilhadas — FECHADA. Próximo: encoding
+de `state` (4ª feature) e/ou avaliação por lucro (resolve o roteamento das flags e o
+valor do multiplicador).
