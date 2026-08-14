@@ -44,6 +44,46 @@
 #   de honestidade das outras varreduras -- labels dos recusados sao desconhecidos).
 #   Criterio de teste: se variar censored_extra nao mudar a bad rate do grupo censored,
 #   a flag nao se justifica no parcelling -> volta pro caminho (b) (dti tratado basta).
+#
+# Bloco 2: varredura estendida do base_mult ate 5.0 (literatura generica sugeria 2-5x).
+#   Achado: 4.0/5.0 saturam bad_rate_censored em 1.0 e levam a bad_rate GERAL a ~70% da
+#   populacao recusada inteira -- implausivel (o multiplicador e aplicado uniformemente
+#   por banda, entao em valores altos estoura o teto ate nas bandas boas).
+#
+# Bloco 3 (CORRIGE o Bloco 2): o multiplicador deve ser CALIBRADO pela razao real entre
+#   bad rates, nao varrido as cegas no range generico 1-5 da literatura (SAS Enterprise
+#   Miner: bad rate aprovados 8% -> recusados 13% = fator ~1.5, calibrado pelo dado, nao
+#   chutado). Aqui bad rate aprovados = 12,43% -> faixa plausivel de multiplicador fica
+#   em ~1.5-2.5 (bad rate recusados 18-31%). Sem os labels reais dos recusados nao da pra
+#   calibrar o fator "certo" (diferente de Hugo Lopes 2018, que tinha labels e escolheu
+#   por AUC) -- so mostrar sensibilidade em torno do plausivel. Varredura corrigida:
+#   base_mult em {1.0, 1.5, 2.0, 2.5, 3.0}; 4.0/5.0 ficam registrados no roadmap como
+#   "testado, satura, implausivel", nao re-rodados aqui.
+#
+# Bloco 4: emp_length dos recusados tratado pela CONVENCAO que o projeto ja usa em
+#   emp_length_anos nos aprovados (confirmado no repo: train.parquet tem emp_length_anos
+#   escala 0-10 com sentinela -1, e emp_length_missing como flag companheira, 0 mismatches
+#   entre as duas). Substitui o parse_emp_length ad-hoc do Bloco 1 por um mapeamento
+#   explicito (EMP_MAP) que segue a mesma convencao:
+#   - '< 1 year' -> 0: MANTIDO como sinal real (nao tratado como missing). Defesa: Fed da
+#     Filadelfia (Jagtiani & Lam) achou tempo de emprego como o fator MAIS importante da
+#     recusa no Lending Club (~88% de importancia relativa vs ~6% amount, ~5% dti) -- e
+#     esperado que recusados sejam dominados por emprego curto, e' o mecanismo causal da
+#     recusa, nao anomalia de formulario. Nao ha marcador de sentinela distinto pra esse
+#     valor (diferente do dti, onde '-1%'/'9999%' eram prova direta de sentinela).
+#   - '10+ years' -> 10: mesma codificacao dos aprovados, SEM flag de censura separada
+#     (diferente do dti_censored: aqui ja existe convencao previa no projeto, entao a
+#     regra e seguir o que ja existe, nao inventar uma flag nova que quebraria a simetria
+#     de features com os aprovados).
+#   - None -> -1 + flag emp_length_missing: mesma convencao MNAR do projeto.
+#
+# Bloco 6: fecha a exploracao das 4 features compartilhadas (dti, emp_length, amount,
+#   state -- state fica pra quando virar feature, diagnostico em scratch_diag_state.py
+#   confirmou limpo: 50 estados+DC, 22 nulos/27,6M, zero territorios/invalidos). amount
+#   NAO tem mecanismo (diagnostico em scratch_diag_amount_emplen.py: sem sentinela, sem
+#   pico de censura, distribuicao de numeros redondos humana normal) -- so filtro simples:
+#   amount<=0 e logicamente impossivel (1.288 linhas, 0,005%), investigar mais seria
+#   cerimonia, nao rigor.
 
 import sys
 from pathlib import Path
@@ -63,19 +103,41 @@ REJECT_GLOB = "data/processed/reject/rejected.parquet/app_year=*/*.parquet"
 SHARED = ["amount", "dti", "emp_length"]  # thin model (1d: flags saem, viram metadado)
 
 
-def parse_emp_length(v):
-    """Identica a notebooks/03_build_processed.ipynb (celula 9) -- mesma convencao
-    usada para gerar emp_length_anos nos aprovados. Portada aqui, nao reimplementada
-    de memoria: '< 1 year' -> 0, 'n years'/'n year' -> n, '10+ years' -> 10, NaN mantem NaN."""
-    if pd.isna(v):
-        return np.nan
-    v = v.strip()
-    if v == "< 1 year":
-        return 0.0
-    if v == "10+ years":
-        return 10.0
-    digits = "".join(ch for ch in v if ch.isdigit())
-    return float(digits) if digits else np.nan
+EMP_MAP = {
+    "< 1 year": 0, "1 year": 1, "2 years": 2, "3 years": 3, "4 years": 4,
+    "5 years": 5, "6 years": 6, "7 years": 7, "8 years": 8, "9 years": 9,
+    "10+ years": 10,
+}
+
+
+def treat_emp_length_rejected(df, raw_col="emp_length_raw", out_col="emp_length"):
+    """
+    Converte emp_length_raw (texto) para numerico 0-10, seguindo a MESMA convencao
+    ja usada em emp_length_anos nos aprovados (confirmado no repo, Bloco 4):
+      - '< 1 year' -> 0 (sinal real, mantido -- ver defesa no cabecalho do arquivo).
+      - '1'..'9 years' -> 1..9.
+      - '10+ years' -> 10 (sem flag de censura; mesma codificacao dos aprovados).
+      - None/ausente -> -1 + flag emp_length_missing (convencao MNAR do projeto).
+    """
+    s = df[raw_col]
+    mapped = s.map(EMP_MAP)
+    is_missing = mapped.isna()  # None ou qualquer valor fora do mapa
+    counts = {
+        "lt1_year_0": int((mapped == 0).sum()),
+        "10plus_10": int((mapped == 10).sum()),
+        "missing_-1": int(is_missing.sum()),
+        "total": len(df),
+    }
+    df[out_col] = mapped.fillna(-1).astype(int)
+    df["emp_length_missing"] = is_missing.astype(int)
+    print("[TRATAMENTO emp_length recusados]")
+    for k, v in counts.items():
+        print(f"  {k:<14}: {v:,}")
+    unmapped = df.loc[is_missing & s.notna(), raw_col].value_counts().head()
+    if len(unmapped):
+        print("  [ATENCAO] valores textuais nao mapeados (verificar):")
+        print(unmapped)
+    return df, counts
 
 
 def treat_dti_rejected(df, col="dti"):
@@ -116,6 +178,19 @@ def treat_dti_rejected(df, col="dti"):
     return df, counts
 
 
+def treat_amount_rejected(df, col="amount"):
+    """
+    amount dos recusados NAO tem mecanismo de excecao (diagnostico:
+    scratch_diag_amount_emplen.py -- sem sentinela, sem censura, distribuicao normal de
+    numeros redondos humanos). So filtro simples: amount<=0 e logicamente impossivel.
+    """
+    n0 = len(df)
+    df = df[df[col] > 0].copy()
+    print(f"[TRATAMENTO amount] removidas {n0 - len(df):,} linhas (amount<=0); "
+          f"restaram {len(df):,}")
+    return df
+
+
 def load_approved_shared():
     """Aprovados (split 'train', 172.988 linhas, ate 2013) -> X[SHARED], y, issue_d.
     dti dos aprovados ja e saudavel (sem sentinela, p99~33) -- nao recebe tratamento."""
@@ -135,26 +210,27 @@ def load_approved_shared():
 
 def load_rejected_shared():
     """Recusados (Parquet particionado da Fase 1, 27.648.741 linhas) -> X[SHARED], rej_flags.
-    emp_length_raw parseado com a mesma parse_emp_length dos aprovados; sentinela -1
-    para ausente, mesma convencao de emp_length_anos. dti tratado por mecanismo (Bloco 1c).
-    dti_missing/dti_censored NAO entram em X (1d) -- saem como rej_flags, metadado
-    usado so no parcelling."""
+    amount filtrado (amount<=0, Bloco 6); dti tratado por mecanismo (Bloco 1c); emp_length
+    tratado pela convencao dos aprovados (Bloco 4). dti_missing/dti_censored/
+    emp_length_missing NAO entram em X (1d/4) -- saem como rej_flags, metadado usado so
+    no parcelling."""
     con = duckdb.connect()
     rel = f"read_parquet('{REJECT_GLOB}', hive_partitioning=true)"
     df_raw = con.execute(
         f"SELECT amount_requested, dti, emp_length_raw FROM {rel}"
     ).fetchdf()
-    emp_length = df_raw["emp_length_raw"].apply(parse_emp_length)
     df = pd.DataFrame({
         "amount": df_raw["amount_requested"].astype(float),
         "dti": df_raw["dti"].astype(float),
-        "emp_length": emp_length.fillna(-1.0),
+        "emp_length_raw": df_raw["emp_length_raw"],
     })
-    df, counts = treat_dti_rejected(df)
+    df = treat_amount_rejected(df)
+    df, dti_counts = treat_dti_rejected(df)
+    df, emp_counts = treat_emp_length_rejected(df)
     X = df[SHARED]
-    rej_flags = df[["dti_missing", "dti_censored"]].reset_index(drop=True)
+    rej_flags = df[["dti_missing", "dti_censored", "emp_length_missing"]].reset_index(drop=True)
     X = X.reset_index(drop=True)
-    return X, rej_flags, counts
+    return X, rej_flags, {"dti": dti_counts, "emp_length": emp_counts}
 
 
 # --- Thin model: Logistic nas features compartilhadas ------------------------
@@ -172,7 +248,12 @@ def parcelling_labels_grouped(model, X_appr, y_appr, X_rej, rej_flags,
                                n_bands, base_mult, censored_extra):
     """
     Parcelling com multiplicador de bad rate ajustado por grupo.
-    - base_mult: multiplicador aplicado a todos os recusados (varrido: 1.0/1.5/2.0).
+    - base_mult: multiplicador aplicado a todos os recusados (varrido: 1.0-3.0,
+      Bloco 3 -- faixa CORRIGIDA e plausivel pra este dataset, calibrada pela razao
+      real bad rate aprovados/recusados, nao um chute cego no range 1-5 da literatura
+      generica. Ver docs/reject_inference_roadmap.md, secao Fase 2a, "correcao do
+      multiplicador". 4.0/5.0 foram testados no Bloco 2 e saturam a bad_rate_censored
+      em 1.0 e produzem bad_rate geral ~70% -- implausivel, mantido so como registro).
     - censored_extra: multiplicador ADICIONAL para recusados com dti_censored=1
       (varrido: 1.0 = sem efeito, 1.25, 1.5). censored_extra=1.0 recupera o caminho (b).
     rej_flags: DataFrame alinhado a X_rej com coluna 'dti_censored' (0/1).
@@ -202,7 +283,7 @@ def parcelling_labels_grouped(model, X_appr, y_appr, X_rej, rej_flags,
 # --- Varredura tripla: faixas x base_mult x censored_extra ---------------------
 def sweep_grouped(model, X_appr, y_appr, X_rej, rej_flags,
                    bands_list=(5, 10, 20),
-                   base_list=(1.0, 1.5, 2.0),
+                   base_list=(1.0, 1.5, 2.0, 2.5, 3.0),
                    censored_extra_list=(1.0, 1.25, 1.5)):
     """censored_extra=1.0 e o controle (equivale a NAO tratar o censored -> caminho b)."""
     print(f"{'faixas':>7}{'base':>6}{'cens_x':>8}{'bad_rate':>12}{'bad_rate_censored':>20}")
@@ -223,7 +304,7 @@ def sweep_grouped(model, X_appr, y_appr, X_rej, rej_flags,
 
 
 if __name__ == "__main__":
-    print("[Fase 2a - Bloco 1d] thin model (3 features) + parcelling com flag roteada")
+    print("[Fase 2a - Bloco 6] thin model (3 features) -- qualidade de dado das 4 features fechada")
 
     print("\nCarregando aprovados (split 'train')...")
     X_appr, y_appr, issue_d_appr = load_approved_shared()
@@ -232,7 +313,8 @@ if __name__ == "__main__":
 
     print("\nCarregando recusados (Parquet particionado, 27.648.741 linhas esperadas)...")
     X_rej, rej_flags, rej_counts = load_rejected_shared()
-    print(f"  {len(X_rej):,} linhas | censored (dti>=100%): {int(rej_flags['dti_censored'].sum()):,}")
+    print(f"  {len(X_rej):,} linhas | censored (dti>=100%): {int(rej_flags['dti_censored'].sum()):,}"
+          f" | emp_length_missing: {int(rej_flags['emp_length_missing'].sum()):,}")
     print(X_rej.describe())
 
     print("\nTreinando thin model (Logistic Regression, 3 features -- flags fora)...")
@@ -243,4 +325,4 @@ if __name__ == "__main__":
     print("\nRodando varredura tripla de parcelling (faixas x base_mult x censored_extra)...")
     res = sweep_grouped(thin, X_appr, y_appr, X_rej, rej_flags)
 
-    print("\n[Fase 2a - Bloco 1d] concluido.")
+    print("\n[Fase 2a - Bloco 6] concluido.")
