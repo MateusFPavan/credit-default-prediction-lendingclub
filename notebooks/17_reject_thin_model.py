@@ -101,6 +101,25 @@
 #   mecanismo e ja atuam via o VALOR tratado -- mas nenhuma vira multiplicador no
 #   parcelling. Ver docs/reject_inference_roadmap.md, decisao do Bloco 1d atualizada
 #   para FECHADA.
+#
+# Bloco 10 (corrige fundacao, achado da auditoria pre-comparacao): a auditoria achou que
+#   o thin model treinava e definia as bandas de parcelling no MESMO X_appr, sem nenhum
+#   holdout -- vies de otimismo em-amostra, nunca medido. Corrigido com 4-fold CV
+#   estratificada nos aprovados (forma canonica Kozodoi/Lessmann, arXiv 1909.06108 e
+#   2407.13009): em cada fold, fit do modelo nos folds de treino, avalia no fold de
+#   validacao -- primeiro numero HONESTO (out-of-sample) de quao preditivo o thin model
+#   e. O modelo final usado pra pontuar os recusados (fora do CV, nao tem fold la)
+#   continua ajustado em TODOS os aprovados -- normal para o modelo de producao, o que
+#   mudou e que agora existe uma medida out-of-sample separada, nao mais silenciosa.
+#   `baseline_ignore_rejects()` criado como benchmark formal ("ignore rejects", o
+#   primeiro benchmark de todo paper de RI) -- thin model treinado so nos aprovados, sem
+#   nenhuma informacao de recusado, para comparar por LUCRO na proxima etapa.
+#   NOTA (nao resolvida ainda, fora de escopo deste bloco): as BANDAS do parcelling
+#   (`parcelling_labels`, mais abaixo) ainda sao construidas com `model.predict_proba
+#   (X_appr)` no modelo final (treinado em todos os aprovados) -- resquicio do mesmo vies
+#   em-amostra que a CV elimina pro AUC, mas nao pras bandas. Registrar: a avaliacao
+#   HONESTA da capacidade preditiva do thin model e a AUC da CV; o parcelling em si segue
+#   com bandas em-amostra ate um bloco futuro que integre CV as bandas tambem.
 
 import sys
 from pathlib import Path
@@ -108,9 +127,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import duckdb
+from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.metrics import roc_auc_score
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.data import load_split
@@ -260,6 +281,39 @@ def train_thin_model(X, y):
     return model
 
 
+def thin_model_cv(X_appr, y_appr, n_splits=4, seed=42):
+    """
+    4-fold CV estratificada nos aprovados (Bloco 10, forma canonica Kozodoi). Em cada
+    fold: fit do modelo nos folds de treino, avalia (AUC) no fold de validacao -- elimina
+    o vies de otimismo em-amostra que a auditoria achou (treino e avaliacao no mesmo
+    X_appr). Retorna: AUC out-of-sample media/desvio, e o modelo final treinado em TODOS
+    os aprovados (para uso na inferencia dos recusados, onde nao ha fold).
+    """
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    aucs = []
+    for tr_idx, va_idx in skf.split(X_appr, y_appr):
+        m = Pipeline([("scaler", StandardScaler()),
+                      ("clf", LogisticRegression(max_iter=1000, random_state=seed))])
+        m.fit(X_appr.iloc[tr_idx], y_appr[tr_idx])
+        p_va = m.predict_proba(X_appr.iloc[va_idx])[:, 1]
+        aucs.append(roc_auc_score(y_appr[va_idx], p_va))
+    aucs = np.array(aucs)
+    print(f"[THIN MODEL CV] AUC out-of-sample: {aucs.mean():.4f} +/- {aucs.std():.4f} "
+          f"(folds: {np.round(aucs, 4)})")
+    final = train_thin_model(X_appr, y_appr)  # modelo de producao: ajustado em TODOS os aprovados
+    return final, aucs
+
+
+def baseline_ignore_rejects(X_appr, y_appr):
+    """
+    Baseline formal 'ignore rejects' (Bloco 10): thin model treinado SO nos aprovados,
+    sem nenhuma inferencia de recusado. E' o benchmark contra o qual parcelling e CI-EX
+    serao medidos por LUCRO a taxa de aceitacao fixa (proximo bloco) -- o primeiro
+    benchmark de todo paper de reject inference (Kozodoi).
+    """
+    return train_thin_model(X_appr, y_appr)
+
+
 # --- Parcelling (Bloco 8: simplificado, censored_extra removido -- nao agregava lucro) ---
 def parcelling_labels(model, X_appr, y_appr, X_rej, n_bands, base_mult):
     """
@@ -308,7 +362,7 @@ def sweep(model, X_appr, y_appr, X_rej,
 
 
 if __name__ == "__main__":
-    print("[Fase 2a - Bloco 8] parcelling simplificado (censored_extra removido, nao agregava lucro)")
+    print("[Fase 2a - Bloco 10] thin model com 4-fold CV + baseline 'ignore rejects'")
 
     print("\nCarregando aprovados (split 'train')...")
     X_appr, y_appr, issue_d_appr = load_approved_shared()
@@ -322,12 +376,19 @@ if __name__ == "__main__":
           f" (flags mantidas como metadado, nao roteadas no parcelling -- Bloco 8)")
     print(X_rej.describe())
 
-    print("\nTreinando thin model (Logistic Regression, 3 features -- flags fora)...")
-    thin = train_thin_model(X_appr, y_appr)
+    print("\nTreinando thin model com 4-fold CV estratificada (Bloco 10, primeiro numero "
+          "out-of-sample honesto)...")
+    thin, aucs_cv = thin_model_cv(X_appr, y_appr)
     coefs = dict(zip(SHARED, thin.named_steps["clf"].coef_[0]))
-    print("  Coeficientes (padronizados):", coefs)
+    print("  Coeficientes do modelo final (padronizados, ajustado em todos os aprovados):", coefs)
+
+    print("\nCriando baseline formal 'ignore rejects' (Bloco 10)...")
+    baseline = baseline_ignore_rejects(X_appr, y_appr)
+    print(f"  baseline_ignore_rejects() OK -- thin model treinado so nos aprovados, "
+          f"sem info de recusado. Coeficientes identicos ao modelo final da CV "
+          f"(mesmos dados/seed): {dict(zip(SHARED, baseline.named_steps['clf'].coef_[0]))}")
 
     print("\nRodando varredura de parcelling (faixas x base_mult, sem censored_extra)...")
     res = sweep(thin, X_appr, y_appr, X_rej)
 
-    print("\n[Fase 2a - Bloco 8] concluido.")
+    print("\n[Fase 2a - Bloco 10] concluido.")
