@@ -733,3 +733,54 @@ nunca medido até então.
   (treinado em todos os aprovados) pontuando `X_appr` inteiro — mesmo resquício de viés
   em-amostra que a CV elimina para o AUC, mas ainda não para as bandas. Fica para um
   bloco futuro integrar CV às bandas também.
+
+### Fase 2a — tese central: RI não é validável no Lending Club (Bloco 11)
+
+Fecha a Fase 2a. Não é "parcelling ganhou/perdeu" — é demonstrar, com o próprio dado, por
+que qualquer "melhora" reportada por reject inference é provavelmente artefato de
+avaliação, não ganho real. Três razões medidas (as três pernas da tese):
+
+1. **Sinal compartilhado fraco**: thin model (features comuns às duas populações) tem
+   AUC out-of-sample 0,5620 ± 0,0027 (Bloco 10, 4-fold CV) — mal acima de 0,5. Qualquer
+   label inferido a partir desse score é quase ruído.
+2. **Sem outcome de recusado**: confirmado no repo (auditoria pré-comparação) — nenhuma
+   coluna de label de recusado em lugar nenhum. Kickout/AUK (métrica padrão de RI) é
+   impossível (achado já registrado acima).
+3. **Sem amostra não-enviesada nem taxa populacional real**: a métrica que escapa da
+   ilusão (distorção da taxa de treino vs populacional, *Illusion of Improvement*,
+   Scarone & Baeza-Yates, arXiv 2606.18479, ECML PKDD 2026) exige a taxa populacional
+   VERDADEIRA como referência. O Lending Club não a tem (recusados nunca viraram
+   empréstimo). Kozodoi (arXiv 1909.06108) escapa disso porque tem uma amostra
+   não-enviesada de 1.967 casos (recusados aceitos de propósito, para observar o
+   outcome); não existe análogo aqui. Conclusão do Illusion: avaliar RI só nos aprovados
+   PRODUZ ilusão de melhora — extrapolação supera até um Oráculo com labels reais, porque
+   avaliar no pool aceito recompensa fronteiras extremas.
+
+**Demonstração** (`notebooks/19_illusion_demonstration.py`, `demonstrate_illusion()`):
+mede o sintoma do artefato, não "quem ganhou" — a taxa de default do conjunto de treino
+aumentado (aprovados reais + recusados com label do parcelling) vs a taxa real dos
+aprovados (12,43%), variando `base_mult` (10 bandas, faixa 1.0-3.0 do Bloco 3):
+
+| base_mult | taxa treino pós-RI | inflação vs aprovados |
+|---|---|---|
+| 1.0 | 0,1417 | +0,0173 |
+| 1.5 | 0,2121 | +0,0878 |
+| 2.0 | 0,2825 | +0,1581 |
+| 2.5 | 0,3530 | +0,2287 |
+| 3.0 | 0,4235 | +0,2992 |
+
+A inflação cresce de forma monotônica e aproximadamente linear com `base_mult` — quanto
+mais "agressivo" o RI, mais inflada a taxa de treino, mais forte o sintoma. Sem a taxa
+populacional verdadeira, essa inflação **não é interpretável** como correção de viés —
+pode ser exatamente isso, ou pode ser um viés novo sendo criado. Não dá para saber qual.
+
+**Conclusão**: o parcelling foi implementado e roda corretamente (competência técnica,
+Blocos 1-10) — mas sua avaliação honesta é impossível com este dado (a contribuição
+intelectual deste bloco). Esta é uma conclusão mais forte e mais honesta do que fingir um
+veredito "RI ajudou X%" que os dados disponíveis não sustentam.
+
+Referências: *Illusion of Improvement* (arXiv 2606.18479); Kozodoi (arXiv 1909.06108,
+2407.13009); Hugo Lopes (2018).
+
+**Estado**: Fase 2a — FECHADA. Infra completa (thin model, parcelling, avaliação por
+lucro, CV, baseline, demonstração da ilusão) commitada localmente, sem push.
