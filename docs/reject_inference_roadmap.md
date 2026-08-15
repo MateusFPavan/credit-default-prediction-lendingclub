@@ -693,4 +693,43 @@ Bloco 1d, acima — REMOVIDO).
 **Estado**: infra de lucro validada e commitada
 (`feat(reject): avaliacao por lucro (formula Kozodoi, LGD varrida, comparacao a taxa
 fixa)`, sem push). Próximo: comparação principal baseline vs parcelling vs CI-EX à taxa
-de aceitação fixa, com Kickout/AUK.
+de aceitação fixa.
+
+### Achado — Kickout padrão é IMPOSSÍVEL no Lending Club (limitação estrutural de dado)
+
+A métrica Kickout/AUK (padrão da literatura de reject inference, Kozodoi 2019/arXiv
+1909.06108, CI-EX 2025/arXiv 2407.13009) exige uma amostra holdout com RECUSADOS
+ROTULADOS (outcome conhecido). Os papers que a usam têm datasets especiais onde alguns
+recusados foram aceitos assim mesmo, para observar o outcome real. O Lending Club NÃO
+tem isso: recusados nunca viraram empréstimo, logo não têm outcome. Busca no repo
+(auditoria pré-comparação) confirmou: nenhuma coluna de label de recusado em lugar
+nenhum — nem no Parquet tratado, nem no CSV bruto, nem em qualquer outro arquivo.
+
+- **Consequência**: a avaliação padrão-ouro de reject inference (Kickout/AUK) é
+  IMPOSSÍVEL neste dataset — não é uma métrica ainda não implementada, é uma métrica que
+  o dado disponível não sustenta.
+- **Decisão**: LUCRO (fórmula Kozodoi, validada byte a byte) é a métrica central da Fase
+  2a. A impossibilidade da Kickout vira um ACHADO documentado — mais honesto do que
+  forçar uma métrica sem o dado que ela exige. Um lender real resolveria isso via
+  exploração controlada (aprovar 2-5% dos recusados e observar o outcome), algo que não
+  é possível reproduzir retroativamente em dado histórico.
+
+### Bloco 10 — correção de fundação: 4-fold CV + baseline "ignore rejects"
+
+A auditoria pré-comparação (ver acima) achou que o thin model treinava E definia as
+bandas de parcelling no MESMO `X_appr`, sem nenhum holdout — viés de otimismo em-amostra,
+nunca medido até então.
+
+- **Corrigido**: `thin_model_cv()` (`notebooks/17_reject_thin_model.py`) — 4-fold CV
+  estratificada nos aprovados (forma canônica Kozodoi/Lessmann): em cada fold, fit do
+  modelo nos folds de treino, avalia (AUC) no fold de validação. Primeiro número
+  out-of-sample honesto da capacidade preditiva do thin model.
+- **Baseline formal criado**: `baseline_ignore_rejects()` — thin model treinado só nos
+  aprovados, sem nenhuma inferência de recusado. É o benchmark contra o qual parcelling e
+  CI-EX serão medidos por lucro (é o primeiro benchmark de todo paper de reject
+  inference).
+- **Limitação remanescente, registrada e não fechada neste bloco**: as BANDAS do
+  parcelling (`parcelling_labels`) ainda são construídas com o modelo final
+  (treinado em todos os aprovados) pontuando `X_appr` inteiro — mesmo resquício de viés
+  em-amostra que a CV elimina para o AUC, mas ainda não para as bandas. Fica para um
+  bloco futuro integrar CV às bandas também.
