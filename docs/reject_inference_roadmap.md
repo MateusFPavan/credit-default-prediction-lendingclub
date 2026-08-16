@@ -784,3 +784,55 @@ Referências: *Illusion of Improvement* (arXiv 2606.18479); Kozodoi (arXiv 1909.
 
 **Estado**: Fase 2a — FECHADA. Infra completa (thin model, parcelling, avaliação por
 lucro, CV, baseline, demonstração da ilusão) commitada localmente, sem push.
+
+## Fase 2b — avaliação Bayesiana: herda e AMPLIFICA a limitação (fecha a Fase 2)
+
+**Objetivo**: testar se a avaliação Bayesiana ciente do viés (Kozodoi, arXiv 2407.13009)
+— o método de avaliação de RI mais sofisticado — contorna a limitação achada na 2a.
+Método de confirmação: VARREDURA DE PRIOR (decidido vs simulação; rigor extra da
+simulação sem retorno de portfólio). Implementação didática da extensão Bayesiana
+(`notebooks/20_bayesian_evaluation.py`): taxa de default esperada da carteira sob prior.
+
+**Resultado (medido)**: a estimativa Bayesiana é quase uma CÓPIA do prior.
+
+- Amplitude ~0,396 idêntica em `accept_rate` 10/30/50%; inclinação ≈0,99 (a taxa esperada
+  varia quase 1:1 com o prior). O dado NÃO disciplina a estimativa — o método devolve a
+  suposição.
+- Mecanismo: recusados são 159× mais numerosos (27,5M vs 173K aprovados); thin model AUC
+  0,56 (fraco) não os empurra para fora do topo do ranking; ~99% das vagas aceitas em
+  qualquer `accept_rate` testado são recusados sem label, cujo desfecho é 100% definido
+  pelo prior. Os aprovados (único label real) são numericamente engolidos. Logo a métrica
+  combinada vira função quase pura do prior, não do dado.
+
+**Conclusão**: a avaliação Bayesiana não escapa da limitação da 2a — **HERDA e
+AMPLIFICA**. Confirmado com número, não citação.
+
+### TESE DA FASE 2 (fechada, dois ângulos independentes)
+
+O Lending Club é estruturalmente inadequado para validar reject inference:
+
+1. **2a — impossibilidade direta**: sem outcome de recusado (Kickout impossível), sem
+   taxa populacional real (distorção não-referenciável); avaliar nos aprovados produz
+   ilusão de melhora (Illusion 2026); inflação de taxa de treino cresce com `base_mult`
+   (demonstrado, tabela acima).
+2. **2b — indeterminação Bayesiana**: o método de avaliação de ponta devolve o prior,
+   porque a maioria numérica dos recusados sem label domina a métrica e o AUC 0,56 não
+   contrapõe.
+
+**Contribuição**: competência técnica completa (thin model com CV, tratamento das 4
+features por mecanismo, parcelling, lucro Kozodoi validado byte a byte, avaliação
+Bayesiana) MAIS a maturidade de demonstrar, com rigor e de dois ângulos independentes,
+que o resultado não é validável neste dado.
+
+Referências: *Illusion of Improvement* (arXiv 2606.18479); Kozodoi (arXiv 1909.06108,
+2407.13009); Hugo Lopes (2018).
+
+**Pendências futuras (opcionais, não bloqueiam a tese)**:
+- CI-EX e encoding de `state`: redundantes para a tese (sofreriam a mesma limitação). Só
+  para robustez, se desejado.
+- Documento de decisões final: consolidar o rastro do roadmap (cada decisão + defesa).
+
+**Estado**: Fase 2 (2a + 2b) — FECHADA. Commitada localmente
+(`feat(reject): avaliacao Bayesiana + varredura de prior (Fase 2b)`,
+`docs(reject): registrar tese da Fase 2b -- Bayesian herda e amplifica a limitacao (fecha
+Fase 2)`), sem push.
