@@ -15,14 +15,14 @@ import pandas as pd
 
 
 def build_features(df):
-    """Recebe UM DataFrame, devolve o mesmo com colunas novas. So transformacoes row-wise;
-    nao le, nao recebe e nao referencia nenhum outro conjunto.
+    """Receives ONE DataFrame, returns the same one with new columns. Only row-wise transformations;
+    does not read, receive, or reference any other dataset.
 
-    fico_mean e bankcard_to_total_limit foram removidas: fico_mean tem correlacao 1.0000
-    com fico_range_high (spread low/high e constante, media e apenas translacao linear -
-    nao adiciona informacao). bankcard_to_total_limit foi descartada por ter ~30% do treino
-    sem valor definido (sentinela em era_pre_2012 mais 0/0 organico) em troca de AUC
-    univariada de apenas 0.5393.
+    fico_mean and bankcard_to_total_limit were removed: fico_mean has a 1.0000 correlation
+    with fico_range_high (the low/high spread is constant, the mean is just a linear translation -
+    it adds no information). bankcard_to_total_limit was dropped for having ~30% of training
+    without a defined value (era_pre_2012 sentinel plus organic 0/0) in exchange for a
+    univariate AUC of only 0.5393.
     """
     df = df.copy()
 

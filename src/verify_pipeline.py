@@ -33,13 +33,13 @@ def main():
     profit = profit_at_threshold(y_test, y_prob_test, THRESH_XGB, interest_test.values, loss_test.values)
 
     diff = profit - REFERENCE_LUCRO_XGB
-    print(f"Lucro reproduzido apenas com src/: $ {profit:,.2f}")
-    print(f"Lucro de referencia (notebook 12): $ {REFERENCE_LUCRO_XGB:,.2f}")
-    print(f"Diferenca: $ {diff:,.4f}")
+    print(f"Profit reproduced using only src/: $ {profit:,.2f}")
+    print(f"Reference profit (notebook 12): $ {REFERENCE_LUCRO_XGB:,.2f}")
+    print(f"Difference: $ {diff:,.4f}")
 
     if abs(diff) > 0.01:
-        raise RuntimeError(f"DIVERGENCIA de $ {diff:,.2f} - src/ nao reproduz o notebook 12.")
-    print("OK: src/ e autossuficiente e reproduz exatamente o resultado do teste.")
+        raise RuntimeError(f"DIVERGENCE of $ {diff:,.2f} - src/ does not reproduce notebook 12.")
+    print("OK: src/ is self-sufficient and reproduces the test result exactly.")
 
 
 if __name__ == "__main__":

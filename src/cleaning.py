@@ -1,18 +1,18 @@
 """
-Limpeza de registro para inferencia (porte do notebook 03 para producao).
+Record cleaning for inference (port of notebook 03 to production).
 
-Reproduz -- nao redecide -- as decisoes de docs/cleaning_decisions.md, para que
-um registro cru (vindo da API ou de um lote de monitoramento) receba o MESMO
-tratamento de missing/sentinela/flags que o pipeline de treino aplicou. A prova
-de fidelidade e a verificacao bit-a-bit contra os parquets (ver o bloco de teste).
+Reproduces -- does not re-decide -- the decisions from docs/cleaning_decisions.md, so that
+a raw record (coming from the API or a monitoring batch) receives the SAME
+missing/sentinel/flag treatment the training pipeline applied. The proof
+of fidelity is the bit-for-bit check against the parquets (see the test block).
 
-Nao toca no notebook 03 nem no run_all.py: e um porte para consumo em producao,
-verificado por igualdade, nao uma segunda pipeline paralela com decisoes proprias.
+Does not touch notebook 03 or run_all.py: it's a port for production consumption,
+verified by equality, not a second parallel pipeline with its own decisions.
 
-Estatisticas que dependem da populacao (as 6 medianas dos esparsos) sao LIDAS de
-src/_cleaning_stats.json (congeladas do train.parquet), nunca recalculadas -- um
-registro novo nao tem populacao para calcular mediana, e recalcular divergiria do
-treino (a classe de erro que este projeto evita).
+Population-dependent statistics (the 6 medians of the sparse columns) are READ from
+src/_cleaning_stats.json (frozen from train.parquet), never recomputed -- a
+new record has no population to compute a median from, and recomputing would diverge from
+training (the class of error this project avoids).
 """
 from __future__ import annotations
 
@@ -23,10 +23,10 @@ import pandas as pd
 
 from src.data import CATEGORICAL_COLS
 
-# --- tabelas de decisao (docs/cleaning_decisions.md), NAO redecididas aqui ---
+# --- decision tables (docs/cleaning_decisions.md), NOT re-decided here ---
 
-# MNAR / ausencia-informativa: sentinela 999 (preserva ordenacao "maior = mais seguro")
-# cada uma tem flag propria *_missing (1 se a fonte veio nula)
+# MNAR / informative absence: sentinel 999 (preserves the "higher = safer" ordering)
+# each one has its own *_missing flag (1 if the source came in null)
 SENTINEL_999_WITH_FLAG = {
     "mths_since_last_delinq": "mths_since_last_delinq_missing",
     "mths_since_last_record": "mths_since_last_record_missing",
@@ -35,12 +35,12 @@ SENTINEL_999_WITH_FLAG = {
     "mths_since_last_major_derog": "mths_since_last_major_derog_missing",
     "mths_since_recent_inq": "mths_since_recent_inq_missing",
 }
-# contadores / emp_length: sentinela -1 (sem ordenacao "maior=seguro"), com flag propria
+# counters / emp_length: sentinel -1 (no "higher=safer" ordering), with its own flag
 SENTINEL_NEG1_WITH_FLAG = {
     "num_tl_120dpd_2m": "num_tl_120dpd_2m_missing",
     "emp_length_anos": "emp_length_missing",
 }
-# rollout 2012 estrutural: sentinela -1, coberto por era_pre_2012 (SEM flag propria)
+# structural 2012 rollout: sentinel -1, covered by era_pre_2012 (WITHOUT its own flag)
 SENTINEL_NEG1_ROLLOUT = [
     "tot_coll_amt", "tot_cur_bal", "total_rev_hi_lim", "avg_cur_bal", "mort_acc",
     "acc_open_past_24mths", "total_bal_ex_mort", "total_bc_limit",
@@ -51,13 +51,13 @@ SENTINEL_NEG1_ROLLOUT = [
     "num_tl_op_past_12m", "pct_tl_nvr_dlq", "tot_hi_cred_lim",
     "total_il_high_credit_limit",
 ]
-# rollout + estrutural empilhado: sentinela 999 (preserva ordenacao), SEM flag propria
-# (exceto mths_since_recent_inq, ja tratada em SENTINEL_999_WITH_FLAG)
+# stacked rollout + structural: sentinel 999 (preserves ordering), WITHOUT its own flag
+# (except mths_since_recent_inq, already handled in SENTINEL_999_WITH_FLAG)
 SENTINEL_999_ROLLOUT = [
     "bc_util", "bc_open_to_buy", "percent_bc_gt_75", "mths_since_recent_bc",
     "mo_sin_old_il_acct",
 ]
-# esparsos: flag agregada sparse_bureau_missing (OR) + mediana congelada
+# sparse columns: aggregated flag sparse_bureau_missing (OR) + frozen median
 SPARSE_COLS = [
     "pub_rec_bankruptcies", "revol_util", "chargeoff_within_12_mths",
     "collections_12_mths_ex_med", "tax_liens", "dti",
@@ -69,18 +69,18 @@ _SPARSE_MED = _STATS["sparse_medians"]
 
 def clean_record(raw) -> pd.DataFrame:
     """
-    Recebe um registro cru (dict ou DataFrame) e devolve um DataFrame limpo, com os
-    sentinelas, flags e imputacoes do notebook 03 aplicados. Colunas ausentes no
-    input crua sao tratadas como nulas (o cliente nao mandou aquele campo de bureau).
+    Receives a raw record (dict or DataFrame) and returns a clean DataFrame, with
+    notebook 03's sentinels, flags and imputations applied. Columns absent from
+    the raw input are treated as null (the client didn't send that bureau field).
     """
     if isinstance(raw, dict):
         df = pd.DataFrame.from_records([raw])
     else:
         df = raw.copy()
 
-    # 1) flags *_missing (calcular ANTES de preencher a fonte) -- 1 se fonte ausente/nula.
-    #    logica explicita, sem negacao de bool: se a coluna-fonte nao existe no input,
-    #    a flag e 1 para todas as linhas; se existe, a flag e 1 onde ela e nula.
+    # 1) *_missing flags (compute BEFORE filling the source) -- 1 if source absent/null.
+    #    explicit logic, no bool negation: if the source column doesn't exist in the input,
+    #    the flag is 1 for every row; if it exists, the flag is 1 where it's null.
     for src, flag in {**SENTINEL_999_WITH_FLAG, **SENTINEL_NEG1_WITH_FLAG}.items():
         if flag not in df.columns:
             if src in df.columns:
@@ -88,18 +88,18 @@ def clean_record(raw) -> pd.DataFrame:
             else:
                 df[flag] = 1
 
-    # 2) flag agregada dos esparsos: 1 se QUALQUER esparso ausente/nulo
+    # 2) aggregated sparse flag: 1 if ANY sparse column is absent/null
     if "sparse_bureau_missing" not in df.columns:
         any_missing = pd.Series(False, index=df.index)
         for c in SPARSE_COLS:
             any_missing = any_missing | (df[c].isna() if c in df.columns else True)
         df["sparse_bureau_missing"] = any_missing.astype("int64")
 
-    # 3) era_pre_2012: registro novo -> sempre 0 (bureau moderno sempre disponivel)
+    # 3) era_pre_2012: new record -> always 0 (modern bureau always available)
     if "era_pre_2012" not in df.columns:
         df["era_pre_2012"] = 0
 
-    # 4) aplicar sentinelas
+    # 4) apply sentinels
     for src in {**SENTINEL_999_WITH_FLAG}:
         if src not in df.columns: df[src] = 999.0
         else: df[src] = df[src].fillna(999.0)
@@ -113,38 +113,38 @@ def clean_record(raw) -> pd.DataFrame:
         if src not in df.columns: df[src] = -1.0
         else: df[src] = df[src].fillna(-1.0)
 
-    # 5) esparsos: mediana congelada do treino
+    # 5) sparse columns: frozen training median
     for c in SPARSE_COLS:
         med = _SPARSE_MED[c]
         if c not in df.columns: df[c] = med
         else: df[c] = df[c].fillna(med)
 
-    # 6) funded_amnt: redundante com loan_amnt (cleaning §REVISAR); derivar se ausente
+    # 6) funded_amnt: redundant with loan_amnt (cleaning §REVISIT); derive if absent
     if "funded_amnt" not in df.columns and "loan_amnt" in df.columns:
         df["funded_amnt"] = df["loan_amnt"]
 
-    # 7) contadores de evento raro sem sentinela no notebook 03 (nunca nulos no treino).
-    #    Para um registro novo que os omita, default 0 -- fundamentado: sao 0 em >99,5%
-    #    das linhas e forcar 0 move o score em media 0,00003 (verificado nesta sessao).
-    #    Ausencia de evento = 0 e o significado do campo, nao um chute.
+    # 7) rare-event counters with no sentinel in notebook 03 (never null in training).
+    #    For a new record that omits them, default 0 -- justified: they're 0 in >99.5%
+    #    of rows, and forcing 0 moves the score by 0.00003 on average (verified in this session).
+    #    Absence of event = 0 is the field's meaning, not a guess.
     for c in ("acc_now_delinq", "delinq_amnt"):
         if c not in df.columns:
             df[c] = 0.0
         else:
             df[c] = df[c].fillna(0.0)
 
-    # 8) delinq_2yrs / pub_rec: default 0 quando omitidos. Fundamentado por impacto
-    #    isolado (forcar 0 move o score >0,01 em apenas 1,57% e 2,23% dos casos,
-    #    ~10x menor que inq_last_6mths, que por isso e obrigatorio na API, nao aqui).
+    # 8) delinq_2yrs / pub_rec: default 0 when omitted. Justified by isolated impact
+    #    (forcing 0 moves the score >0.01 in only 1.57% and 2.23% of cases,
+    #    ~10x smaller than inq_last_6mths, which is why that one is required in the API, not these).
     for c in ("delinq_2yrs", "pub_rec"):
         if c not in df.columns:
             df[c] = 0.0
         else:
             df[c] = df[c].fillna(0.0)
 
-    # 9) coercao numerica defensiva: um Optional omitido no schema chega como None e
-    #    o pandas cria coluna 'object', que o XGBoost recusa. Forca numerico onde a
-    #    coluna deveria ser numerica; nao toca nas categoricas nem nas de data.
+    # 9) defensive numeric coercion: an Optional omitted in the schema arrives as None and
+    #    pandas creates an 'object' column, which XGBoost rejects. Forces numeric where the
+    #    column should be numeric; doesn't touch categorical or date columns.
     _non_numeric = set(CATEGORICAL_COLS) | {"issue_d", "earliest_cr_line"}
     for c in df.columns:
         if c not in _non_numeric and df[c].dtype == object:

@@ -53,7 +53,7 @@ def run_notebook(filename, timeout=NOTEBOOK_TIMEOUT):
     proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(
-            f"notebook {filename} falhou (exit code {proc.returncode}).\n"
+            f"notebook {filename} failed (exit code {proc.returncode}).\n"
             f"--- stderr (final) ---\n{proc.stderr[-4000:]}"
         )
 
@@ -87,8 +87,8 @@ def step_verify():
     print(proc.stdout)
     if proc.returncode != 0:
         raise RuntimeError(
-            f"Verificacao de integridade FALHOU (exit code {proc.returncode}).\n"
-            f"O lucro reproduzido nao bateu com o valor de referencia (${REFERENCE_PROFIT}).\n"
+            f"Integrity verification FAILED (exit code {proc.returncode}).\n"
+            f"The reproduced profit did not match the reference value (${REFERENCE_PROFIT}).\n"
             f"--- stderr ---\n{proc.stderr[-4000:]}"
         )
 
@@ -111,21 +111,21 @@ STEPS = [
 
 def main():
     print("=" * 70)
-    print("credit-default-prediction-lendingclub - reproducao do caminho essencial")
+    print("credit-default-prediction-lendingclub - essential path reproduction")
     print("=" * 70)
 
     if not RAW_CSV.exists():
         print()
-        print("ERRO: arquivo de dados bruto nao encontrado em:")
+        print("ERROR: raw data file not found at:")
         print(f"  {RAW_CSV.relative_to(REPO_ROOT)}")
         print()
-        print("Baixe o dataset Lending Club no Kaggle:")
+        print("Download the Lending Club dataset from Kaggle:")
         print("  https://www.kaggle.com/datasets/wordsforthewise/lending-club")
-        print("(requer conta/API key do Kaggle - este script nao baixa automaticamente).")
+        print("(requires a Kaggle account/API key - this script does not download it automatically).")
         print()
-        print("Depois de baixar, coloque o arquivo como:")
+        print("After downloading, place the file at:")
         print(f"  {RAW_CSV.relative_to(REPO_ROOT)}")
-        print("e rode este script novamente.")
+        print("and run this script again.")
         sys.exit(1)
 
     total_start = time.time()
@@ -133,7 +133,7 @@ def main():
 
     for i, step in enumerate(STEPS, start=1):
         print()
-        print(f"[{i}/{len(STEPS)}] Etapa {step['id']}: {step['desc']}")
+        print(f"[{i}/{len(STEPS)}] Step {step['id']}: {step['desc']}")
         t0 = time.time()
         try:
             if step["kind"] == "notebook":
@@ -142,29 +142,29 @@ def main():
                 step["func"]()
         except RuntimeError as e:
             elapsed = time.time() - t0
-            print(f"  FALHOU apos {elapsed:.1f}s.")
+            print(f"  FAILED after {elapsed:.1f}s.")
             print()
             print("=" * 70)
-            print(f"PIPELINE PAROU na etapa {step['id']} ({step['desc']}).")
+            print(f"PIPELINE STOPPED at step {step['id']} ({step['desc']}).")
             print("=" * 70)
             print(str(e))
             sys.exit(1)
         elapsed = time.time() - t0
         step_times.append((step["id"], step["desc"], elapsed))
-        print(f"  OK em {elapsed:.1f}s ({elapsed / 60:.1f} min).")
+        print(f"  OK in {elapsed:.1f}s ({elapsed / 60:.1f} min).")
 
     total_elapsed = time.time() - total_start
 
     print()
     print("=" * 70)
-    print("RESUMO")
+    print("SUMMARY")
     print("=" * 70)
     for step_id, desc, elapsed in step_times:
         print(f"  {step_id:>6}  {elapsed:8.1f}s  {desc}")
-    print(f"\nTempo total: {total_elapsed:.1f}s ({total_elapsed / 60:.1f} min)")
+    print(f"\nTotal time: {total_elapsed:.1f}s ({total_elapsed / 60:.1f} min)")
     print()
-    print("Pipeline reproduzido com sucesso. O lucro no teste (XGB_walkforward, "
-          f"threshold 0.31) bateu exatamente com ${REFERENCE_PROFIT}.")
+    print("Pipeline reproduced successfully. The test profit (XGB_walkforward, "
+          f"threshold 0.31) matched exactly with ${REFERENCE_PROFIT}.")
 
 
 if __name__ == "__main__":

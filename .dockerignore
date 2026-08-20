@@ -1,4 +1,4 @@
-# nao copiar para o contexto de build: dados, ambiente, notebooks, git
+# do not copy into the build context: data, environment, notebooks, git
 data/
 .venv/
 notebooks/
