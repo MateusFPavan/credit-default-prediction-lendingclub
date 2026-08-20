@@ -21,7 +21,7 @@
 # e roda a varredura de parcelling. CI-EX, Kickout e lucro vem em blocos seguintes.
 #
 # Bloco 1c (SUBSTITUI o 1b): tratamento de dti dos RECUSADOS por mecanismo, nao
-# exclusao cega (diagnostico em scratch_diag_dti_reject.py / scratch_diag_dti_parte2.py):
+# exclusao cega (diagnostico em scratch/scratch_diag_dti_reject.py / scratch/scratch_diag_dti_parte2.py):
 #   - dti == -1 ('-1%')          -> sentinela MNAR (mesma convencao do -1 em
 #                                    emp_length_anos) -> flag dti_missing + imputa mediana.
 #   - dti == 100 ('100%')        -> censura a direita (>=100%, 170x o vizinho mais
@@ -78,9 +78,9 @@
 #   - None -> -1 + flag emp_length_missing: mesma convencao MNAR do projeto.
 #
 # Bloco 6: fecha a exploracao das 4 features compartilhadas (dti, emp_length, amount,
-#   state -- state fica pra quando virar feature, diagnostico em scratch_diag_state.py
+#   state -- state fica pra quando virar feature, diagnostico em scratch/scratch_diag_state.py
 #   confirmou limpo: 50 estados+DC, 22 nulos/27,6M, zero territorios/invalidos). amount
-#   NAO tem mecanismo (diagnostico em scratch_diag_amount_emplen.py: sem sentinela, sem
+#   NAO tem mecanismo (diagnostico em scratch/scratch_diag_amount_emplen.py: sem sentinela, sem
 #   pico de censura, distribuicao de numeros redondos humana normal) -- so filtro simples:
 #   amount<=0 e logicamente impossivel (1.288 linhas, 0,005%), investigar mais seria
 #   cerimonia, nao rigor.
@@ -181,8 +181,8 @@ def treat_emp_length_rejected(df, raw_col="emp_length_raw", out_col="emp_length"
 def treat_dti_rejected(df, col="dti"):
     """
     Tratamento de dti dos RECUSADOS por mecanismo (Bloco 1c, substitui a limpeza
-    ingenua do Bloco 1b). Diagnostico medido em scratch_diag_dti_reject.py /
-    scratch_diag_dti_parte2.py:
+    ingenua do Bloco 1b). Diagnostico medido em scratch/scratch_diag_dti_reject.py /
+    scratch/scratch_diag_dti_parte2.py:
       - dti == -1  -> missing sentinela ('-1%', mesma convencao de emp_length_anos):
                       flag dti_missing=1, valor imputado (mediana dos validos).
       - dti == 9999/99999/199998 -> sentinela redundante (0,3%, ja coberto pelo -1
@@ -219,7 +219,7 @@ def treat_dti_rejected(df, col="dti"):
 def treat_amount_rejected(df, col="amount"):
     """
     amount dos recusados NAO tem mecanismo de excecao (diagnostico:
-    scratch_diag_amount_emplen.py -- sem sentinela, sem censura, distribuicao normal de
+    scratch/scratch_diag_amount_emplen.py -- sem sentinela, sem censura, distribuicao normal de
     numeros redondos humanos). So filtro simples: amount<=0 e logicamente impossivel.
     """
     n0 = len(df)
