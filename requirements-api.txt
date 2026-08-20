@@ -1,6 +1,6 @@
-# Runtime enxuto para servir a API (src/api.py) em container.
-# Subset do requirements.txt completo (que inclui Jupyter/shap/etc. de pesquisa).
-# Versoes espelham o venv de desenvolvimento.
+# Lean runtime to serve the API (src/api.py) in a container.
+# Subset of the full requirements.txt (which includes Jupyter/shap/etc. for research).
+# Versions mirror the development venv.
 fastapi==0.141.1
 uvicorn==0.52.1
 pandas==3.0.3

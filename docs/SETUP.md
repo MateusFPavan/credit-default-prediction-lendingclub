@@ -146,7 +146,7 @@ No GPU, no distributed setup, no special hardware.
 
 ## 8. Troubleshooting
 
-- **"arquivo de dados bruto nao encontrado"**: the raw CSV isn't at
+- **"raw data file not found"**: the raw CSV isn't at
   `data/raw/accepted_2007_to_2018Q4.csv`. See §3.
 - **Test profit doesn't match exactly**: check that XGBoost is running with `n_jobs=1`
   and that no step reordered `train.parquet` (e.g., sorted by `issue_d`) before fitting.
