@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2026-08-18
+
+### Fixed
+- README's stale "not yet served behind an API" framing corrected (see README.md and
+  docs/MODEL_CARD.md section 10) -- technical_report.md had the same stale claim, fixed
+  here. technical_report.md's Limitations section (§11) now describes the model as
+  served and monitored, with the still-valid caveat that it must not drive a real
+  credit decision; its Recommendations section (§13) drops the already-shipped
+  deployment item and adds automated retraining execution as a next step.
+- docs/SETUP.md corrected: it said requirements.txt has 124 packages, the file actually
+  pins 127 (fastapi, uvicorn, pytest, added in v2.0.0 for the API and its test suite).
+  requirements.txt itself reordered so those three packages sit in alphabetical
+  position instead of appended at the end.
+
 ## [2.0.1] - 2026-08-06
 
 ### Fixed

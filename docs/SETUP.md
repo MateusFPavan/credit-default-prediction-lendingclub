@@ -16,9 +16,11 @@ exact commands, expected results, and honest scope boundaries.
 
 ## 2. Dependencies
 
-`requirements.txt` at the repo root is a full pinned `pip freeze` (124 packages, produced
-in this environment). Top-level libraries: `pandas`, `numpy`, `scikit-learn`, `xgboost`,
-`imbalanced-learn`, `matplotlib`, `seaborn`, `jupyter`, `pyarrow`, `statsmodels`, `shap`.
+`requirements.txt` at the repo root is a full pinned `pip freeze` (127 packages, produced
+in this environment; 124 from the original research environment plus `fastapi`,
+`uvicorn`, and `pytest`, added for the production API and its test suite in v2.0.0).
+Top-level libraries: `pandas`, `numpy`, `scikit-learn`, `xgboost`, `imbalanced-learn`,
+`matplotlib`, `seaborn`, `jupyter`, `pyarrow`, `statsmodels`, `shap`, `fastapi`, `pytest`.
 
 **bash**
 ```bash
@@ -167,28 +169,27 @@ commands ✓ (§5), expected results/seeds ✓ (§6), relative paths only ✓ (t
 absolute path appears anywhere in this guide or in `run_all.py`), no committed secrets ✓
 (§3, §4).
 
-## 9. Servir a API em container (Docker)
+## 9. Serving the API in a container (Docker)
 
-A API de inferência (`src/api.py`, tarefa 4.3) é containerizável. O container usa um
-runtime enxuto, `requirements-api.txt` (~9 pacotes: fastapi, uvicorn, pandas, numpy,
-scikit-learn, xgboost, joblib, pyarrow, pydantic), **não** o `requirements.txt` completo
-— este inclui o ecossistema de pesquisa (Jupyter, shap, seaborn) que a API não usa.
-Separar o runtime de produção do ambiente de análise mantém a imagem pequena e a
-superfície de manutenção reduzida.
+The inference API (`src/api.py`, task 4.3) is containerized. The container uses a lean
+runtime, `requirements-api.txt` (~9 packages: fastapi, uvicorn, pandas, numpy,
+scikit-learn, xgboost, joblib, pyarrow, pydantic), **not** the full `requirements.txt`
+— which includes the research ecosystem (Jupyter, shap, seaborn) the API doesn't use.
+Separating the production runtime from the analysis environment keeps the image small and
+the maintenance surface reduced.
 
-Build e execução (requer Docker):
+Build and run (requires Docker):
 ```bash
 docker build -t credit-default-api .
 docker run -p 8000:8000 credit-default-api
-# API em http://localhost:8000 ; contrato interativo em /docs
+# API at http://localhost:8000 ; interactive contract at /docs
 ```
 
-O build copia o pacote `src/` inteiro (os imports tardios exigem a cadeia `api -> scoring
--> cleaning -> features -> data`) e apenas `models/xgb_final.joblib` (o baseline
-logístico não é usado pela API). `libgomp1` é instalado via apt porque o XGBoost o exige
-em imagem slim.
+The build copies the entire `src/` package (the late imports require the chain `api ->
+scoring -> cleaning -> features -> data`) and only `models/xgb_final.joblib` (the
+logistic baseline is not used by the API). `libgomp1` is installed via apt because
+XGBoost requires it in a slim image.
 
-O build e um smoke test completo (subir o container, `/health`, um `/score` real, e a
-checagem de 422 em input inválido) rodam automaticamente no GitHub Actions a cada push
-para `main` (`.github/workflows/docker.yml`) — não é necessário Docker local para
-validar.
+The build and a full smoke test (bring up the container, `/health`, a real `/score`, and
+the 422 check on invalid input) run automatically on GitHub Actions on every push to
+`main` (`.github/workflows/docker.yml`) — local Docker is not required to validate.

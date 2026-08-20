@@ -288,8 +288,11 @@ more in training data than it returned in profit for this model, and was not ado
   downstream use of the raw probability, not just the fixed 0.31 threshold evaluated here.
 - **Identity leakage is unverifiable, not just unresolved** (§4). The absence of a
   borrower key means this limitation cannot be fixed within this dataset.
-- **Not deployed.** The model is packaged as a reproducible, serialized artifact
-  (`models/xgb_final.joblib`), not a live service. No drift monitoring exists.
+- **Served and monitored, not for real lending.** The model is served behind a FastAPI
+  endpoint, containerized and CI-tested on every push, with a PSI-based drift monitor
+  (`docs/MODEL_CARD.md` §10). This proves the artifact is servable and observable; it does
+  not change the selection-bias limitation above, and the model must still not drive a
+  real credit decision.
 
 ## 12. Reproducibility
 
@@ -305,11 +308,13 @@ notebooks (`notebooks/06` through `11`) and summarized in `docs/FACTS.md`.
 The evidence supports shipping the walk-forward-tuned XGBoost model as a **second
 decision layer** over an existing approval process, on 36-month loans, with the frozen
 0.31 threshold, not as a standalone underwriting system. Recommended next steps, named
-explicitly rather than left implicit: (1) deployment as a served API with drift
-monitoring, currently absent by design; (2) a dedicated 60-month scorecard, justified by
-the transfer finding in §9; (3) revisiting calibration only if a use case specifically
-requires well-calibrated absolute probabilities rather than a fixed threshold, given the
-cost measured in §10.
+explicitly rather than left implicit: (1) a dedicated 60-month scorecard, justified by
+the transfer finding in §9; (2) automated retraining execution (scheduling and alerting
+on top of the retraining-trigger policy already defined in `docs/MODEL_CARD.md` §10-11);
+(3) revisiting calibration only if a use case specifically requires well-calibrated
+absolute probabilities rather than a fixed threshold, given the cost measured in §10.
+Deployment as a served API with drift monitoring, listed here in earlier versions of this
+report, shipped in v2.0.0 (`docs/MODEL_CARD.md` §10; `CHANGELOG.md`).
 
 ---
 
