@@ -152,9 +152,19 @@ Implementation: `notebooks/16` through `20`.
 
 ```mermaid
 flowchart TD
-    A["Phase 1 — Ingestion & Validation<br/>PySpark: 27.6M rejected-applicant rows<br/>Independent re-run on Databricks Free Edition"] --> B["Phase 2a — Thin Model & Profit Metric<br/>Logistic Regression, 3 shared features<br/>AUC 0.5620 ± 0.0027 (4-fold CV)<br/>Parcelling, byte-exact profit validation<br/>Illusion-of-improvement demonstration"]
-    B --> C["Phase 2b — Bayesian Evaluation<br/>Kozodoi bias-aware framework<br/>Estimate ≈ copy of the prior (slope ≈ 0.99)"]
-    C --> D["Conclusion — RI not validatable on this dataset<br/>Two independent lines of evidence<br/>Production model (src/api.py) unchanged"]
+    A["`**Phase 1 — Ingestion & Validation**
+    PySpark: 27.6M rejected-applicant rows
+    Independent re-run on Databricks Free Edition`"] --> B["`**Phase 2a — Thin Model & Profit Metric**
+    Logistic Regression, 3 shared features
+    AUC 0.5620 ± 0.0027 (4-fold CV)
+    Parcelling, byte-exact profit validation
+    Illusion-of-improvement demonstration`"]
+    B --> C["`**Phase 2b — Bayesian Evaluation**
+    Kozodoi bias-aware framework
+    Estimate ≈ copy of the prior (slope ≈ 0.99)`"]
+    C --> D["`**Conclusion — RI not validatable on this dataset**
+    Two independent lines of evidence
+    Production model (src/api.py) unchanged`"]
 ```
 
 **What's new here** (this supersedes an earlier, less rigorous check that
