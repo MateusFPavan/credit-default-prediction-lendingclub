@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-08-21
+
+### Added
+- **Reject inference (v3): a rigorous, negative-result investigation** (`notebooks/16`-`20`,
+  `docs/reject_inference_roadmap.md`). Tests whether reject inference can correct the model's
+  documented selection-bias limitation. Thin model (Logistic Regression, 3 shared features)
+  scores 0.5620 ± 0.0027 AUC out-of-sample (4-fold CV); the profit metric was independently
+  re-implemented and validated byte-exact against the published production result
+  ($242,230,710.89 @ threshold 0.31). Two independent lines of evidence — a direct
+  impossibility argument (no reject-outcome labels exist anywhere in the dataset, no true
+  population rate to check inferred rates against, and a measured, monotonic training-rate
+  inflation across the multiplier sweep) and a Bayesian bias-aware evaluation that reproduces
+  its own prior (slope ≈ 0.99) rather than the data — both conclude RI is not validatable on
+  this dataset. Includes an independent cross-environment validation of the ingestion
+  pipeline on Databricks Free Edition. The production model (`src/api.py`) is unchanged;
+  this is a methodology chapter, not a product change.
+
 ## [2.0.2] - 2026-08-18
 
 ### Fixed
