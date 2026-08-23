@@ -1,5 +1,9 @@
 # Credit Default Prediction: Lending Club
 
+[![CI](https://github.com/MateusFPavan/credit-default-prediction-lendingclub/actions/workflows/docker.yml/badge.svg)](https://github.com/MateusFPavan/credit-default-prediction-lendingclub/actions/workflows/docker.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+
 Turning loan approvals into a profit decision: a credit-default model for real
 peer-to-peer consumer loans, selected and evaluated by expected portfolio profit, not
 accuracy.
@@ -81,6 +85,32 @@ approved):
 
 Full methodology and every underlying number: [`docs/technical_report.md`](docs/technical_report.md).
 
+## Serving & Monitoring
+
+The model is served and monitored, not left as a notebook artifact. This is a reproducible,
+CI-tested inference stack, not a hosted service under SLA — the selection-bias limit below
+still governs what the scores may be used for.
+
+- **Inference API** ([`src/api.py`](src/api.py)): a FastAPI service. `POST /score` takes a
+  raw loan application, applies the *exact* training-time cleaning and encoding (reused via
+  `src/scoring.py` → `src/cleaning.py` → `src/features.py`, never reimplemented), and returns
+  a default probability plus an approve/reject decision at the 0.31 profit threshold.
+  `GET /health` reports readiness. Out-of-range or missing input returns HTTP 422 rather
+  than a silent wrong score, and `term` is restricted to 36 (the model is not valid for
+  60-month loans).
+- **Drift monitoring** ([`src/monitor.py`](src/monitor.py)): reuses the project's PSI engine
+  (`src/psi.py`) to compare an incoming batch against the training baseline. It separates
+  *genuine* drift (a real platform policy shift in `initial_list_status`, PSI ≈ 0.48) from
+  *artifacts* (the definitional `issue_d` split cut), and refuses to score batches below a
+  measured sample floor where PSI is just noise.
+- **Containerized + CI**: a [`Dockerfile`](Dockerfile) serves the API from a lean,
+  serving-only dependency set; a [GitHub Actions workflow](.github/workflows/docker.yml)
+  builds the image and smoke-tests `/health`, a real `/score`, and the 422 path on every
+  push.
+
+Serving, monitoring, and the retraining trigger are documented in
+[`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) §10.
+
 ## Limitations
 
 The model is not uniformly reliable, and that is reported directly rather than
@@ -97,13 +127,94 @@ smoothed over in an aggregate metric:
 - **Not transferable to 60-month loans** without a dedicated scorecard. Applied without
   refitting, performance degrades severely, which is evidence that 36- and 60-month
   loans are structurally distinct risk populations.
-- **Not fully deployed.** Drift monitoring exists (Population Stability Index by feature
-  and score, with a raw-vs-clean view — see the dashboard and `src/psi.py`), but the model
-  is not yet served behind an API, and there is no live monitoring loop. A serving API and
-  a separate 60-month scorecard are named next steps, not gaps.
+- **Optimistic calibration**: observed default exceeds predicted in every decile, so the
+  raw score should not be treated as a conservative probability. A recalibration attempt
+  was tested and rejected (it cost 42% of training data for no net profit gain).
+
+Remaining next steps (deliberate, not gaps): a dedicated 60-month scorecard, automated
+retraining execution with alerting, and monitoring against a real production batch.
 
 Full disaggregated results, calibration analysis, and SHAP explainability:
 [`docs/technical_report.md`](docs/technical_report.md) §8.
+
+## Reject Inference: An Honest Investigation (v3)
+
+The model above is trained only on approved loans, so it can only estimate
+P(default | approved) — it has never seen a rejected application (see
+Limitations). Reject inference (RI) is the standard technique that claims to
+correct exactly this selection bias. This investigation asks, with rigor: is
+RI actually validatable on this dataset? The answer is no, and the negative
+result is the deliverable.
+
+Full methodology, every number, and the chronological decision log:
+[`docs/reject_inference_roadmap.md`](docs/reject_inference_roadmap.md).
+Implementation: `notebooks/16` through `20`.
+
+```mermaid
+flowchart TD
+    A["`**Phase 1 — Ingestion & Validation**
+    PySpark: 27.6M rejected-applicant rows
+    Independent re-run on Databricks Free Edition`"] --> B["`**Phase 2a — Thin Model & Profit Metric**
+    Logistic Regression, 3 shared features
+    AUC 0.5620 ± 0.0027 (4-fold CV)
+    Parcelling, byte-exact profit validation
+    Illusion-of-improvement demonstration`"]
+    B --> C["`**Phase 2b — Bayesian Evaluation**
+    Kozodoi bias-aware framework
+    Estimate ≈ copy of the prior (slope ≈ 0.99)`"]
+    C --> D["`**Conclusion — RI not validatable on this dataset**
+    Two independent lines of evidence
+    Production model (src/api.py) unchanged`"]
+```
+
+**What's new here** (this supersedes an earlier, less rigorous check that
+reached the same directional conclusion):
+
+- A **thin model** — Logistic Regression on the 3 features shared between
+  approved and rejected applicants (`amount`, `dti`, `emp_length`) —
+  evaluated out-of-sample via 4-fold CV: **AUC 0.5620 ± 0.0027**, barely
+  above the no-skill line.
+- **Parcelling**, implemented by hand (not simulated), scoring all 27.6M
+  rejected applicants with the thin model and assigning a good/bad label
+  proportional to expected bad rate, swept across `base_mult ∈ {1.0 – 3.0}`.
+- The production profit metric (Kozodoi format), re-implemented
+  independently and validated **byte-exact** against the already-published
+  production result: **$242,230,710.89** at threshold 0.31 — identical to
+  `docs/FACTS.md`. This confirms the new pipeline is correct without
+  touching the served model.
+- A **Bayesian bias-aware evaluation** (Phase 2b), testing whether the
+  field's most sophisticated RI-evaluation method escapes the limitation
+  found in Phase 2a.
+- An **independent validation pass on Databricks Free Edition**, re-running
+  the full PySpark ingestion pipeline end-to-end outside the local
+  environment, confirming identical results.
+
+**Two independent lines of evidence, same conclusion:**
+
+1. **Phase 2a — direct impossibility.** The shared signal is weak (AUC
+   0.56). There is no reject-outcome label anywhere in the dataset, so the
+   field-standard Kickout/AUK evaluation metric is not just unimplemented
+   but impossible here. There is also no true population default rate to
+   check an inferred rate against — the metric that would normally protect
+   against the "Illusion of Improvement" failure mode (Scarone & Baeza-Yates,
+   ECML PKDD 2026) can't be computed. A direct demonstration confirms it:
+   the post-RI training default rate inflates monotonically with the
+   multiplier (14.2% → 42.3% as `base_mult` goes 1.0 → 3.0), and there is no
+   way to tell, from this dataset, whether that inflation is bias correction
+   or a new bias being manufactured.
+2. **Phase 2b — even the best available method inherits the limitation.**
+   Kozodoi's Bayesian bias-aware evaluation was tested to see if it escapes
+   Phase 2a's limitation. It doesn't: the resulting estimate is nearly a
+   copy of the prior fed into it (slope ≈ 0.99), because rejected applicants
+   outnumber approved ones 159×, and the thin model's weak AUC can't push
+   them out of the ranking — so ~99% of any evaluated sample ends up
+   label-less, and the real labels are numerically swamped.
+
+**What did not change:** `src/api.py`, `src/scoring.py`, `src/cleaning.py`,
+the 0.31 threshold, the feature set, and the model's documented
+selection-bias limitation are all untouched. This is a methodology chapter,
+not a product change — reject inference was investigated and, with
+evidence, not adopted.
 
 ## The Model
 
@@ -144,6 +255,15 @@ bootstrap validation, in `notebooks/06` through `11`): those take hours and are 
 needed to reproduce the delivered model. They are fully documented, not hidden. See
 `docs/FACTS.md` and the notebooks themselves.
 
+To serve the model behind the API (optional):
+
+```bash
+pip install -r requirements-api.txt
+uvicorn src.api:app --reload          # API at http://localhost:8000, contract at /docs
+# or, containerized:
+docker build -t credit-default-api . && docker run -p 8000:8000 credit-default-api
+```
+
 Full setup and troubleshooting: [`docs/SETUP.md`](docs/SETUP.md).
 
 ## Repository Structure
@@ -151,12 +271,17 @@ Full setup and troubleshooting: [`docs/SETUP.md`](docs/SETUP.md).
 ```
 data/            raw CSV (gitignored) and processed parquets (gitignored, sample versioned)
 notebooks/       01-15 working notebooks (full process) + 1.0-7.0 narrated notebooks (presentation)
-src/             data.py, features.py, economics.py, models.py, verify_pipeline.py
-models/          xgb_final.joblib, logistic_baseline.joblib (gitignored); model_meta.json (versioned)
+                 + 16-20 reject-inference investigation (PySpark/Databricks ingestion,
+                 thin model, profit metric, illusion demonstration, Bayesian evaluation)
+src/             data · features · economics · models · psi · scoring · cleaning · api · monitor · run/verify scripts
+models/          xgb_final.joblib (versioned) + model_meta.json; logistic_baseline.joblib (gitignored)
 reports/figures/ business-impact figures
-docs/            technical report, data card, model card, setup guide, facts sheet
+reports/reject/  reject-inference data artifacts (coverage, comparison, provenance manifest)
+docs/            technical report, data card, model card, setup guide, facts sheet, reject-inference roadmap
 dashboard/       Power BI (.pbix) + theme + screenshots; interactive web dashboard in docs/index.html
 references/      one-page recruiter case studies (EN and pt-BR)
+Dockerfile       containerized inference API
+.github/         GitHub Actions CI (build + smoke-test the container)
 ```
 
 ## Documentation Index
@@ -166,15 +291,17 @@ references/      one-page recruiter case studies (EN and pt-BR)
 | [`docs/technical_report.md`](docs/technical_report.md) | Full methodology and results |
 | [`docs/FACTS.md`](docs/FACTS.md) | Canonical, verified facts sheet, the single source of truth for every number |
 | [`docs/DATA_CARD.md`](docs/DATA_CARD.md) | Dataset datasheet (provenance, license, missing-data mechanisms) |
-| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model specification, training procedure, evaluation |
+| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model specification, training procedure, evaluation, serving |
+| [`docs/reject_inference_roadmap.md`](docs/reject_inference_roadmap.md) | Reject-inference investigation (v3): full methodology, decisions, and results |
 | [`docs/SETUP.md`](docs/SETUP.md) | Environment setup and reproduction, step by step |
+| [`CHANGELOG.md`](CHANGELOG.md) | Versioned change history (Keep a Changelog / SemVer) |
 | [`references/one_pager.md`](references/one_pager.md) | One-page recruiter case study (EN) |
 | [`references/one_pager.pt-br.md`](references/one_pager.pt-br.md) | One-page recruiter case study (pt-BR) |
 | `notebooks/` | Full working process (`01`-`15`) and a narrated walkthrough (`1.0`-`7.0`) |
 
 ## Stack
 
-Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib
+Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib · FastAPI · Docker · GitHub Actions · PySpark · Databricks · DuckDB
 
 ## License & Contact
 
