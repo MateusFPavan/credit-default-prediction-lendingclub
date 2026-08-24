@@ -10,7 +10,7 @@ model -> test-result verification. Notebook 01 (data understanding) and notebook
 (cleaning diagnostics) are intentionally skipped - both are exploratory and neither is a
 prerequisite of notebook 03: 03 reads the raw CSV directly (confirmed by inspection) and
 re-implements docs/cleaning_decisions.md on its own; 02's only file output is
-docs/outliers_multivariados.csv, a diagnostic export nothing downstream reads.
+docs/multivariate_outliers.csv, a diagnostic export nothing downstream reads.
 
 Uses only relative paths (all paths are derived from this file's own location, never a
 hardcoded absolute path).
