@@ -9,7 +9,7 @@ from src.economics import compute_interest_loss, profit_at_threshold
 from src.features import build_features, prepare_X
 from src.models import build_xgb_final
 
-REFERENCE_LUCRO_XGB = 242230710.89
+REFERENCE_PROFIT_XGB = 242230710.89
 THRESH_XGB = 0.31
 
 
@@ -32,9 +32,9 @@ def main():
     y_prob_test = model.predict_proba(X_test)[:, 1]
     profit = profit_at_threshold(y_test, y_prob_test, THRESH_XGB, interest_test.values, loss_test.values)
 
-    diff = profit - REFERENCE_LUCRO_XGB
+    diff = profit - REFERENCE_PROFIT_XGB
     print(f"Profit reproduced using only src/: $ {profit:,.2f}")
-    print(f"Reference profit (notebook 12): $ {REFERENCE_LUCRO_XGB:,.2f}")
+    print(f"Reference profit (notebook 12): $ {REFERENCE_PROFIT_XGB:,.2f}")
     print(f"Difference: $ {diff:,.4f}")
 
     if abs(diff) > 0.01:
