@@ -204,6 +204,13 @@ time. The sensitivity check recorded under D3 is therefore no longer optional: t
 with and without the pre-2012 vintages, and comparing on the test set, is the first
 experiment, not an extension.
 
+Update, 2026-08-25: this check ran (notebooks/06_baseline.ipynb, models M1/M2; paired
+bootstrap, B=1000, seed=42, on the validation set). Removing the pre-2012 vintages
+measurably hurts performance (mean profit difference -$440,725.58, 95% CI
+[-$828,146.70, -$47,929.74], does not cross zero). See docs/cleaning_decisions.md,
+"Deferred to modeling", for the full result and the grade/int_rate/sub_grade
+comparison run alongside it.
+
 Genuine policy shift. initial_list_status moves from 82% "f" in train to 41% in test —
 the platform migrated from fractional listings to whole loans over the period. This is
 real shift, not an artifact of cleaning. Whether the column carries risk signal or merely
