@@ -7,7 +7,25 @@ on:
     branches: [main]
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies (lean API deps + pytest/httpx — not the full research requirements.txt)
+        run: pip install --no-cache-dir -r requirements-api.txt pytest httpx
+
+      - name: Run pytest (tests/test_api.py — API contract suite, task 4.3)
+        run: pytest tests/ -v
+
   build-and-smoke-test:
+    needs: unit-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
