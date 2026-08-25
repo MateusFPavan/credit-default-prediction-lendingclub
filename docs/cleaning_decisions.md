@@ -176,11 +176,29 @@ an error to fix.
   decision: exclude them, and train a comparison model that includes them. If the model
   without them beats the baseline with them, that is the project's finding. If it loses,
   the value of the platform's judgment has been quantified. Either outcome is publishable.
+  Resolved 2026-08-25 (notebooks/06_baseline.ipynb, M1 vs. M3; paired bootstrap,
+  B=1000, seed=42, on the validation set): M3 (with int_rate/grade/sub_grade) beats
+  the baseline by a mean of $21,906.47 on a ~$190M portfolio, 95% CI [-$246,426.51,
+  $303,221.41] — the interval crosses zero, so the platform's own risk judgment does
+  not add performance distinguishable from sampling noise. A single frozen-threshold
+  check on the held-out test set (threshold taken from validation, not re-optimized
+  on test) shows the same direction with a larger gap (~$1.26M), not bootstrapped by
+  design, to avoid a second look at test. Excluding these columns does not appear to
+  cost measurable performance on the evidence gathered so far; the decision to
+  exclude them stands, now backed by a result and not only the leakage argument.
 - Rare category consolidation (categories below a volume threshold collapsed into
   "other"): the cutoff will be set from value counts, not assumed.
 - Sensitivity check on 2007-2009 vintages (kept per D3, on the hypothesis that early
   adopters of a new platform carry their own risk profile — recorded as a hypothesis to
   test, not a fact).
+  Resolved 2026-08-25 for the broader pre-2012 window scope.md later scoped this check
+  to (notebooks/06_baseline.ipynb, M1 vs. M2; same bootstrap as above): removing the
+  pre-2012 vintages from training makes the model worse, mean profit difference
+  -$440,725.58, 95% CI [-$828,146.70, -$47,929.74] — does not cross zero, a real
+  effect, not sampling noise. This confirms keeping the early vintages helps overall
+  performance; it does not by itself confirm the early-adopter-risk-profile mechanism
+  specifically (a different vintage-level effect could produce the same result) — that
+  narrower causal question stays open.
 
 ## Corrections and additions (post categorical evidence)
 
