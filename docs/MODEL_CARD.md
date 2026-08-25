@@ -167,6 +167,13 @@ always 0 outside the training population).
 - **Subgroup reliability**: weakest where risk is highest (§8), and the cost asymmetry is
   large — a bad loan costs 2.67x what a good loan returns at the median ($5,398.84 vs
   $2,023.62) — so subgroup weakness concentrates where errors are most expensive.
+- **Subgroup mitigation, considered and not implemented (2026-08-25)**: two concrete
+  options exist — sample-weighting by subgroup at training time, or a per-subgroup
+  decision threshold. Sample-weighting requires a full retrain and would likely change
+  the profit numbers already published in §7; a per-subgroup threshold means different
+  approval bars for different grade/income groups, a fair-lending policy question this
+  project has no standing to settle unilaterally. Recorded as an open limitation with
+  named next steps, not a silently accepted gap.
 - **Temporal drift**: hyperparameters and the threshold were fit on 2007-2014 data. Drift
   of 2015+ vintages away from that distribution is now observable via the PSI monitor
   (§10), which is how the temporal-drift risk is surfaced rather than left unmonitored.
