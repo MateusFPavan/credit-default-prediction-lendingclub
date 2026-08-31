@@ -148,9 +148,45 @@ forgone interest $23.12M, net $9.03M. False-negative cost is ~11.9x false-positi
 0.585 (G), and is lowest for income quartile Q1 (0.648) vs Q4 (0.697) — least reliable in
 the highest-risk, lowest-income segment.
 
-**Calibration**: the model systematically **underestimates** default (observed exceeds
-predicted in every decile; e.g. decile 10: 31.80% vs 30.86% predicted). Used as an
-absolute probability the score is optimistic, which matters for any threshold decision.
+**Calibration** (expanded 2026-08-31 with the cause, which was previously unknown): the
+model systematically **underestimates** default — observed exceeds predicted in **all ten
+deciles**, mean bias **-0.0248**. Log-loss 0.3964.
+
+**The cause is base-rate shift, not a defective model.** The model's mean prediction on
+the 2015 test set is **0.1240**; the base rate of the split it was *trained* on is
+**0.1243**. It reproduces its training period's default rate to three decimal places. The
+2015 test set defaulted at **0.1488**. The model is well calibrated for 2007-2013 and is
+being asked about 2015.
+
+| split | N | default rate |
+|---|---|---|
+| train (2007-2013) | 172,988 | 0.1243 |
+| validation (2014) | 162,570 | 0.1373 |
+| **test (2015)** | 282,787 | **0.1488** |
+| transfer_60m | 54,969 | 0.2516 |
+
+**And the drift is cyclical, not a trend** — within the training window the rate is
+2007: 17.9% → 2010: 9.9% → 2012: 13.6% → 2013: 12.3%. It follows the credit cycle. That
+matters for the fix: there is no stable target to calibrate *to*.
+
+**How much the probability adds over knowing nothing**: Brier skill score against a
+constant base-rate forecast is **4.4%** (0.1211 vs 0.1267). Low, and honest — default
+prediction on this data is a low-signal problem, which the AUC of 0.68 already says.
+
+**Recalibration was tested and deliberately NOT adopted** — see §9.
+
+**Where the error lands relative to the decision**: below the cut, in [0.20, 0.31), the
+model underestimates by 0.0235 across 35,666 applicants — roughly **839 more defaults
+than predicted, in a band that is approved**. Just above the cut, in [0.31, 0.45), the
+sign **inverts** (+0.0074). The error concentrates on the approve side.
+
+**What this does and does not invalidate**: the profit figures above **stand**. The
+threshold was chosen by maximizing profit against *realized outcomes*, not against
+predicted probabilities, and calibration is a monotone transform — it cannot change the
+ranking, the AUC, or which applicants fall on which side of an equivalent cut. What it
+does invalidate is the *word* "probability" for absolute use: a consumer computing
+expected loss or provisioning from this score will be systematically low by about 2.5
+percentage points on 2015-like populations.
 
 **Explainability (SHAP, 50k stratified test sample)**: top features by mean |SHAP| are
 `fico_range_low`, `installment_to_income`, `annual_inc`, `acc_open_past_24mths`, `dti`.
@@ -174,9 +210,29 @@ always 0 outside the training population).
   approval bars for different grade/income groups, a fair-lending policy question this
   project has no standing to settle unilaterally. Recorded as an open limitation with
   named next steps, not a silently accepted gap.
-- **Temporal drift**: hyperparameters and the threshold were fit on 2007-2014 data. Drift
-  of 2015+ vintages away from that distribution is now observable via the PSI monitor
-  (§10), which is how the temporal-drift risk is surfaced rather than left unmonitored.
+- **Temporal drift, now quantified (2026-08-31)**: hyperparameters and the threshold were
+  fit on 2007-2014 data. Drift of 2015+ vintages away from that distribution is observable
+  via the PSI monitor (§10). Its effect on the score is now measured rather than asserted:
+  **the default rate moved +2.45 points between the training split and the test split
+  (0.1243 → 0.1488), and the model's mean prediction tracks the former to three decimal
+  places.** That single number is what the PSI monitor exists to catch early.
+- **Recalibration considered and not adopted (2026-08-31)**: isotonic regression and Platt
+  scaling were both fitted and evaluated without leakage (calibrator fit on one half of
+  the test set, evaluated on the other). Both drove the bias to ~0. Isotonic improved
+  Brier from 0.1211 to 0.1203 — **0.6%**, which is essentially the entire theoretical gain
+  available, since the squared bias is only 0.00063. Platt removed the bias but made Brier
+  slightly *worse* (0.1213), meaning the sigmoid form does not match the actual shape of
+  the miscalibration. AUC moved by 0.0004 in both, confirming monotonicity.
+  Rejected for three reasons, in order of weight: (1) **there is no stable target** —
+  the default rate follows the credit cycle rather than a trend, so a calibrator fitted on
+  any past window is already wrong for the next one; validation (2014) sits at 0.1373,
+  between train and test, and calibrating to it would only be *less* wrong; (2) the gain
+  is 0.6% of Brier and 0.04% of profit, an order of magnitude inside the profit CI already
+  published in §8; (3) honest recalibration is an **operational commitment to refit
+  periodically**, and this project has no production traffic to refit against.
+  **Documenting the shift is more useful than removing it**: a consumer who needs an
+  absolute PD for a 2015-like population can apply the measured +2.45-point offset, and
+  will know why.
 - **Term non-transferability**: not valid for 60-month loans without a separate scorecard
   (§4); the API enforces `term=36`.
 - **`application_type` is inert (2026-08-31)**: the column was constant in the training

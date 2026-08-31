@@ -59,7 +59,11 @@ app = FastAPI(
         "P(default | approved) and decides approve/reject at the profit cutoff (0.31). "
         "Does NOT score rejected applicants (selection bias, see Model Card §9). "
         "Only accepts term=36 (model not transferable to 60 months). "
-        "Score is optimistic (underestimates default); do not use as a lower bound."
+        "Score is calibrated to the 2007-2013 training period and underestimates "
+        "default on later vintages by ~2.5 percentage points (measured on 2015: mean "
+        "predicted 0.1240 vs observed 0.1488). Ranking is unaffected; the approve/reject "
+        "decision is not. Do not use as an absolute PD without that offset -- see Model "
+        "Card sections 8 and 9."
     ),
     lifespan=lifespan,
 )
