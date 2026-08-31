@@ -7,8 +7,17 @@ reimplements the encoding by hand -- reconstructing the encoding produces scores
 not identical (lesson from Phase 1).
 
 Scoring contract (the same one already used by run_facts.py and make_threshold_curve.py):
-    normalize dates -> build_features(df) -> prepare_X(df, FEATURE_SET, CATEGORICAL_COLS)
-    -> reindex on the trained booster's columns -> predict_proba[:, 1]
+    normalize dates -> build_features(df) -> prepare_X(df, FEATURE_SET, CATEGORICAL_COLS,
+    drop_first=False) -> reindex on the trained booster's columns -> predict_proba[:, 1]
+
+    drop_first=False is REQUIRED here and is not a stylistic choice (bug P-043,
+    2026-08-30). With drop_first=True the set of one-hot columns produced depends on
+    which categories happen to be present in the batch; on a single-row request that is
+    zero columns, and the reindex below then fills all 16 one-hot columns with 0 - so
+    every applicant was scored as the base category, and the same record scored
+    differently depending on batch composition. With drop_first=False the produced
+    columns are named per present category and the reindex onto the trained list
+    reproduces the training encoding exactly, base category included.
 
 Date normalization: in the project's parquets, issue_d and earliest_cr_line are
 always datetime64. An HTTP request delivers these dates as a string (JSON has
@@ -22,6 +31,16 @@ instead of raising a 500.
 
 The training columns come from model.get_booster().feature_names, so that
 scoring depends only on the .joblib artifact and not on train.parquet (gitignored).
+
+KNOWN GAP (P-044): a category never seen at training encodes as all-zeros, i.e. it is
+silently scored as the base category. That is sklearn's OneHotEncoder(handle_unknown=
+'ignore') behaviour, and it is NOT detectable from the artifact alone: the base category
+of each column has no column either (drop_first removed it at training time), so
+'unknown category' and 'base category' are indistinguishable here. A first attempt at
+warning was written and removed on 2026-08-30 because it fired on every base category -
+application_type in particular has ZERO trained columns, so every single request would
+have warned. Telling them apart requires the training vocabulary frozen to disk, the way
+_cleaning_stats.json already freezes the medians. Tracked as P-044.
 """
 from __future__ import annotations
 
@@ -72,8 +91,10 @@ def score_frame(df: pd.DataFrame, model=None, threshold: float = OPERATIONAL_THR
     Scores a DataFrame already in the raw/clean schema (same as data/processed/*.parquet).
 
     Returns a DataFrame with columns: probability_default, decision.
-    Deterministic: same input -> same output (it's training that has the
-    XGBoost reproducibility gotchas, not inference).
+    Deterministic AND row-independent: the score of a row does not depend on the other
+    rows in the frame. Scoring a record alone and scoring it inside a batch give the same
+    probability (guaranteed by drop_first=False + reindex; see the module docstring and
+    tests/test_features.py::test_REGRESSAO_*).
     """
     from src.features import build_features, prepare_X  # late import: avoids a cycle
     from src.cleaning import clean_record
@@ -84,8 +105,12 @@ def score_frame(df: pd.DataFrame, model=None, threshold: float = OPERATIONAL_THR
     df = _normalize_dates(df.copy())
     df = clean_record(df)  # applies notebook 03's sentinels/flags/medians
     df_feat = build_features(df)
-    X = prepare_X(df_feat, FEATURE_SET, CATEGORICAL_COLS)
-    X = X.reindex(columns=_trained_columns(model), fill_value=0)
+    X = prepare_X(df_feat, FEATURE_SET, CATEGORICAL_COLS, drop_first=False)
+    # fill_value=False (nao 0): as unicas colunas que o reindex ACRESCENTA sao dummies
+    # ausentes -- as numericas de FEATURE_SET sempre existem, senao prepare_X ja teria
+    # levantado KeyError. Preencher com False mantem o dtype bool e faz a matriz de
+    # inferencia ficar identica a de treino em colunas, ordem, valores E dtype.
+    X = X.reindex(columns=_trained_columns(model), fill_value=False)
 
     proba = model.predict_proba(X)[:, 1]
     out = pd.DataFrame(index=df.index)

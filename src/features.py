@@ -36,7 +36,7 @@ def build_features(df):
     return df
 
 
-def prepare_X(df, feature_cols, categorical_cols=CATEGORICAL_COLS):
+def prepare_X(df, feature_cols, categorical_cols=CATEGORICAL_COLS, drop_first=True):
     """Select feature_cols and encode them into a model-ready numeric matrix.
 
     Datetime columns (issue_d, earliest_cr_line) are converted to days since
@@ -52,18 +52,39 @@ def prepare_X(df, feature_cols, categorical_cols=CATEGORICAL_COLS):
     categorical_cols : list of str
         Subset of feature_cols to one-hot encode.
 
+    drop_first : bool, default True
+        True reproduces the training-time encoding (notebooks 06-13): the
+        alphabetically-first category of each column becomes the implicit base and gets
+        no column. KEEP True for training.
+
+        False is for INFERENCE, and it is not an alternative encoding - it is how you get
+        the SAME encoding on a batch that does not contain every category. See the
+        warning below.
+
     Returns
     -------
     pandas.DataFrame
-        Numeric feature matrix. Column set/order can differ between two different calls
-        if the underlying categorical columns don't share the same categories - callers
-        must reindex a scored split's columns to the training matrix's columns before
-        predicting (see notebooks 06-13 for the established pattern).
+        Numeric feature matrix.
+
+    Warning
+    -------
+    With drop_first=True the produced column set depends on WHICH CATEGORIES ARE PRESENT
+    IN THIS CALL, not on the training vocabulary. On a single-row batch every categorical
+    has exactly one category, drop_first removes it, and ZERO one-hot columns are
+    produced; a caller that then reindexes with fill_value=0 silently gets an all-base
+    row. That was bug P-043: the API scored every applicant as the base category, and the
+    same record got a different encoding depending on who else was in the batch.
+
+    For inference, call with drop_first=False and reindex onto the trained column list.
+    That is provably equivalent to the training encoding: a non-base category keeps its
+    column (value 1), and a base category produces a column absent from the trained list,
+    which the reindex drops - leaving the whole group at zero, which is exactly how the
+    base is represented at training time.
     """
     X = df[feature_cols].copy()
     for c in ["issue_d", "earliest_cr_line"]:
         if c in X.columns:
             X[c] = (X[c] - REFERENCE_DATE).dt.days
     cat_present = [c for c in categorical_cols if c in X.columns]
-    X = pd.get_dummies(X, columns=cat_present, drop_first=True)
+    X = pd.get_dummies(X, columns=cat_present, drop_first=drop_first)
     return X
