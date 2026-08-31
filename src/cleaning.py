@@ -143,11 +143,22 @@ def clean_record(raw) -> pd.DataFrame:
             df[c] = df[c].fillna(0.0)
 
     # 9) defensive numeric coercion: an Optional omitted in the schema arrives as None and
-    #    pandas creates an 'object' column, which XGBoost rejects. Forces numeric where the
+    #    pandas creates a non-numeric column, which XGBoost rejects. Forces numeric where the
     #    column should be numeric; doesn't touch categorical or date columns.
+    #
+    #    BUG P-048 (2026-08-31): the condition here used to be `df[c].dtype == object`, and
+    #    it silently stopped working. Under pandas >= 3.0 a column of strings gets the
+    #    dedicated StringDtype (prints as `str`), NOT object -- so `dtype == object` is
+    #    False and the coercion never ran for exactly the case it existed for. The guard was
+    #    correct when written and became wrong without anyone touching this file: pandas
+    #    changed underneath it. Reproduced on pandas 3.0.2.
+    #
+    #    `not is_numeric_dtype` states the intent instead of a proxy for it: if a column that
+    #    should be numeric is not numeric, coerce it. object and StringDtype both match, and
+    #    the two columns that are legitimately non-numeric are excluded by name below.
     _non_numeric = set(CATEGORICAL_COLS) | {"issue_d", "earliest_cr_line"}
     for c in df.columns:
-        if c not in _non_numeric and df[c].dtype == object:
+        if c not in _non_numeric and not pd.api.types.is_numeric_dtype(df[c]):
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
     return df
