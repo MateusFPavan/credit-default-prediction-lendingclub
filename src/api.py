@@ -11,6 +11,13 @@ Task 4.3 of Project 4, Phase 2. Thin shell over src.scoring (pure logic).
   not transferable to 60 (scope §9, Model Card §4, README). Accepting 60 would mean
   scoring something the model doesn't know how to score -- the API refuses with a message that
   points to the limitation, enforcing it rather than just describing it.
+- annual_inc and total_acc require > 0, for the SAME reason as term=36 and not a
+  different one (P-047, 2026-08-31). The training split has ZERO rows with either at 0
+  (measured: 0 of 172,988), and build_features divides by both -- annual_inc feeds three
+  ratios, total_acc feeds open_acc_ratio -- so a 0 produces Inf on a feature the model has
+  never seen. XGBoost would still return a well-formed probability, which is the dangerous
+  part. The contract was ge=0 until this was measured: wider than the model's support, and
+  a contract wider than the support is a promise the model cannot keep.
 - Output: typed. probability_default in [0,1] + decision in {approve, reject}
   at the 0.31 operational cutoff.
 - Errors: missing/out-of-range input -> Pydantic's own 422 (not a silent 500).
@@ -63,7 +70,7 @@ class ScoreRequest(BaseModel):
     loan_amnt: float = Field(..., gt=0, le=100_000, description="Requested amount (USD)")
     installment: float = Field(..., gt=0, le=2_000, description="Monthly installment (USD)")
     term: Literal[36] = Field(..., description="Term in months. Only 36 (model does not serve 60, see Model Card §4)")
-    annual_inc: float = Field(..., ge=0, le=15_000_000, description="Self-reported annual income (USD)")
+    annual_inc: float = Field(..., gt=0, le=15_000_000, description="Self-reported annual income (USD). Must be > 0: the model has zero training support at 0 (0 of 172,988 rows) and build_features divides by it, producing Inf in three ratios. See P-047.")
     fico_range_low: float = Field(..., ge=300, le=850, description="Lower FICO bound at origination")
     dti: float = Field(..., ge=0, le=100, description="Debt-to-income (%). >100 is impossible (scope §2)")
     earliest_cr_line: str = Field(..., description="Date of the oldest credit line (YYYY-MM-DD)")
@@ -72,7 +79,7 @@ class ScoreRequest(BaseModel):
     purpose: str = Field(..., description=f"One of: {_PURP}")
     acc_open_past_24mths: float = Field(..., ge=0, le=100)
     open_acc: float = Field(..., ge=0, le=200)
-    total_acc: float = Field(..., ge=0, le=300)
+    total_acc: float = Field(..., gt=0, le=300, description="Total credit lines ever opened. Must be > 0: zero training support (0 of 172,988 rows) and open_acc_ratio divides by it. See P-047.")
     revol_bal: float = Field(..., ge=0, le=10_000_000)
     revol_util: float = Field(..., ge=0, le=250, description="Revolving utilization (%)")
     inq_last_6mths: float = Field(..., ge=0, le=100, description="Credit inquiries in the last 6 months. Required: informative feature, 0 in only 55% of cases; a default value would be wrong in ~1/5 of applications.")
