@@ -179,6 +179,20 @@ always 0 outside the training population).
   (§10), which is how the temporal-drift risk is surfaced rather than left unmonitored.
 - **Term non-transferability**: not valid for 60-month loans without a separate scorecard
   (§4); the API enforces `term=36`.
+- **`application_type` is inert (2026-08-31)**: the column was constant in the training
+  split, so one-hot encoding with `drop_first` left it with **zero trained columns**. The
+  model cannot use it and never could. It remains in `FEATURE_SET` and in the API contract,
+  where it is accepted and validated — a reader of the contract would reasonably infer it
+  matters. It does not. Not removed because that requires a retrain, which would move the
+  profit figures published in §8.
+- **Unknown categories score as the base category, silently (2026-08-31)**: a category
+  never seen in training produces a column absent from the trained list, which the reindex
+  drops — leaving the group at zero, which is *also* how the base category is represented.
+  The two are **indistinguishable from the serialized artifact**, because `drop_first`
+  removed the base's column at training time. A first attempt at warning was written and
+  removed: it fired on every request. Distinguishing them requires the training vocabulary
+  frozen to disk, the way `_cleaning_stats.json` already freezes the imputation medians.
+  Recorded as a named gap, not a silently accepted one.
 
 ## 10. Production: serving, drift monitoring, and retraining
 
@@ -232,6 +246,23 @@ reproduction entry point (`docs/SETUP.md`).
 
 ## 12. Version history
 
+- **3.0.0 — 2026-08-31** — **Serving correctness.** Five defects were found and fixed in
+  the inference path; the API now returns different probabilities than it did for the same
+  input, and the previous outputs were wrong. MAJOR bump by this card's own stated rule:
+  it contradicts a claim readers relied on — that the served model used the features its
+  contract accepts.
+  The largest: `pd.get_dummies(..., drop_first=True)` on a single-row request produced
+  **zero** one-hot columns, and the reindex filled all 16 with 0, so **every applicant was
+  scored as the base category** — `home_ownership`, `purpose`, `verification_status` and
+  `initial_list_status` were accepted, validated and ignored (measured spread across
+  categories: `0.0000000000`). The same record also scored differently depending on batch
+  composition. Also fixed: `emp_length` was accepted as text and never converted to
+  `emp_length_anos`, so every request was scored as "employment length unknown" on a
+  feature ranked 26th of 88 by weight (4.4% of training rows are genuinely missing; 100%
+  of served rows were). Two new limitations recorded in §9, and the input contract narrowed
+  in §4. **Offline results are unaffected**: `verify_pipeline` still reproduces
+  $242,230,710.89 to the cent and no published CSV changed, because the training path
+  encodes whole splits where every category is present. Full detail in `CHANGELOG.md`.
 - **2.0.0 — 2026-08-06** — Serving and drift monitoring implemented (§10); removed the
   "no API / no monitoring / no drift detection" claim and the "next step" framing of
   deployment. MAJOR bump: contradicts a prior claim readers relied on (model not deployed,

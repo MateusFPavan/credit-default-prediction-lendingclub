@@ -4,6 +4,62 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-08-31
+
+### Fixed
+
+- **Inference encoding no longer depends on batch composition.** `prepare_X` used
+  `pd.get_dummies(..., drop_first=True)`, whose output columns depend on which categories
+  are present *in that call*. On a single-row request every categorical has exactly one
+  category, `drop_first` removes it, and **zero** one-hot columns are produced; the
+  subsequent `reindex(fill_value=0)` then filled all 16 trained columns with 0. Because
+  the API is single-record, **every applicant was scored as the base category** —
+  `home_ownership`, `purpose`, `verification_status` and `initial_list_status` were
+  accepted, validated and ignored. Measured spread across categories was
+  `0.0000000000` on all four; it is now 0.1380 for `purpose` (`small_business` moves from
+  p=0.12 to p=0.26), 0.0164 for `home_ownership`, 0.0016 and 0.0001 for the others. The
+  same record also scored differently depending on who else was in the batch
+  (0.1341794431 alone vs 0.1289446801 in a batch; now identical). Fixed by passing
+  `drop_first=False` at inference, which combined with the reindex reproduces the training
+  encoding exactly, base category included.
+- **`emp_length` is now converted to `emp_length_anos`.** The API accepted
+  `emp_length: Optional[str]` ("10+ years") while the model uses the numeric
+  `emp_length_anos`, and nothing converted one to the other — so every request was scored
+  as "employment length unknown", on a feature ranked 26th of 88 by weight. 4.36% of
+  training rows are genuinely missing; 100% of served rows were. The parser is copied
+  verbatim from `notebooks/02_cleaning.ipynb`, not re-decided.
+- **Defensive numeric coercion works again on pandas 3.** The guard tested
+  `df[c].dtype == object`, but pandas ≥ 3.0 gives string columns a dedicated `StringDtype`,
+  so the comparison was False and the coercion never ran. The condition was correct when
+  written and became wrong on its own, without this file being touched.
+- **Numerical-stability guards** on the training matrix and on the served probability, and
+  a guard on `verify_pipeline`'s reindex, which used the same construction as the bug above
+  and was safe only by a property of the data, not of the code.
+
+### Changed
+
+- **BREAKING — input contract narrowed.** `annual_inc` and `total_acc` now require `> 0`
+  (previously `>= 0`). The training split has zero rows with either at 0, and
+  `build_features` divides by both, so a 0 produced `Inf` on a feature the model has never
+  seen — while still returning a well-formed probability. Same rationale the API already
+  applied to `term=36`: refuse what the model cannot score rather than extrapolate.
+
+### Added
+
+- 68 tests across `tests/test_features.py`, `tests/test_scoring.py`,
+  `tests/test_cleaning.py`, `tests/test_paridade_treino_inferencia.py` and
+  `tests/test_estabilidade_numerica.py`. None of the pre-existing checks caught any of the
+  above, because every failure mode produced a **well-formed, in-range answer**. The tests
+  that do catch them are sensitivity tests (changing a feature must change the score) and
+  a train-vs-inference parity assertion against the real 90-column artifact.
+
+### Note on published results
+
+**No published number changed.** `verify_pipeline` reproduces $242,230,710.89 to the cent
+and `run_facts` regenerates every CSV in `reports/` byte-identically. The offline path
+encodes whole splits, where every category is present and the encoding was always correct.
+Only the live serving path (`src/api.py`, `src/monitor.py`) was affected.
+
 ## [2.1.0] - 2026-08-21
 
 ### Added
