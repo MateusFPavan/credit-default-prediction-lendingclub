@@ -89,6 +89,8 @@ def prepare_X(df, feature_cols, categorical_cols=CATEGORICAL_COLS, drop_first=Tr
     cat_present = [c for c in categorical_cols if c in X.columns]
     X = pd.get_dummies(X, columns=cat_present, drop_first=drop_first)
     return X
+
+
 def assert_matriz_finita(X, contexto=""):
     """Raise if the feature matrix contains NaN or +/-Inf. Silent otherwise.
 
