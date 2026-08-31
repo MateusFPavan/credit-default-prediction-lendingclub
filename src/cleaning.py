@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from src.data import CATEGORICAL_COLS
@@ -67,6 +68,32 @@ _STATS = json.loads((Path(__file__).parent / "_cleaning_stats.json").read_text()
 _SPARSE_MED = _STATS["sparse_medians"]
 
 
+def parse_emp_length(v):
+    """Converts LendingClub's raw emp_length text into emp_length_anos (years).
+
+    COPIED, NOT REDECIDED, from notebooks/02_cleaning.ipynb. Any divergence here is a
+    train/serve skew, so the convention is reproduced literally:
+        "< 1 year"  -> 0.0        (NOT 1.0 -- digit extraction would give 1, which is why
+                                   this branch exists and must stay above the digit path)
+        "N years"   -> N
+        "10+ years" -> 10.0       (top bucket is censored: 10, 12 and 30 years all land here)
+        anything else / missing -> NaN, which the sentinel step below turns into -1
+
+    Verified against the training split on 2026-08-31: values are exactly {-1} u {0..10},
+    12 distinct, no NaN, and -1 <=> emp_length_missing with a perfect crosstab diagonal
+    (7,533 rows, 4.355%). The -1 is injected by step 4 below, not by this function.
+    """
+    if v is None or (isinstance(v, float) and np.isnan(v)) or pd.isna(v):
+        return np.nan
+    v = str(v).strip()
+    if v == "< 1 year":
+        return 0.0
+    if v == "10+ years":
+        return 10.0
+    digits = "".join(ch for ch in v if ch.isdigit())
+    return float(digits) if digits else np.nan
+
+
 def clean_record(raw) -> pd.DataFrame:
     """
     Receives a raw record (dict or DataFrame) and returns a clean DataFrame, with
@@ -77,6 +104,23 @@ def clean_record(raw) -> pd.DataFrame:
         df = pd.DataFrame.from_records([raw])
     else:
         df = raw.copy()
+
+    # 0) emp_length (raw text, what the API receives) -> emp_length_anos (what the model
+    #    was trained on). BUG P-049 (2026-08-31): this step did not exist. The API declares
+    #    emp_length: Optional[str] ("10+ years"), nothing converted it, and emp_length_anos
+    #    never reached the frame -- so step 1 flagged it missing and step 4 sentinelled it
+    #    to -1 on EVERY request. Every applicant was scored as "employment length unknown",
+    #    on a feature ranked 26th of 88 by weight and 33rd by gain. In training only 4.355%
+    #    of rows are missing; in serving it was 100%.
+    #
+    #    MUST run before step 1: step 1 derives emp_length_missing from whether
+    #    emp_length_anos is present. Deriving after would flag as missing a value that had
+    #    just been computed -- the bug, one line later.
+    #
+    #    Does not overwrite an existing emp_length_anos: the parquet path already carries it,
+    #    and the raw emp_length column does not survive into train.parquet (verified).
+    if "emp_length_anos" not in df.columns and "emp_length" in df.columns:
+        df["emp_length_anos"] = df["emp_length"].map(parse_emp_length)
 
     # 1) *_missing flags (compute BEFORE filling the source) -- 1 if source absent/null.
     #    explicit logic, no bool negation: if the source column doesn't exist in the input,

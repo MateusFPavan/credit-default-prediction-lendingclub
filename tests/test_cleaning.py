@@ -276,3 +276,69 @@ def test_valor_numerico_impossivel_vira_NaN_em_vez_de_explodir():
     """errors='coerce': entrada suja vira NaN (erro limpo mais adiante) em vez de 500."""
     df = clean_record(pd.DataFrame([dict(MINIMO, revol_bal="oito mil")]))
     assert pd.isna(df["revol_bal"].iloc[0])
+
+
+# ------------------------------------------------------ 4. emp_length -> anos (P-049)
+
+BRUTOS_DO_TREINO = [
+    ("< 1 year", 0.0), ("1 year", 1.0), ("2 years", 2.0), ("3 years", 3.0),
+    ("4 years", 4.0), ("5 years", 5.0), ("6 years", 6.0), ("7 years", 7.0),
+    ("8 years", 8.0), ("9 years", 9.0), ("10+ years", 10.0),
+]
+
+
+@pytest.mark.parametrize("bruto,esperado", BRUTOS_DO_TREINO)
+def test_parse_emp_length_reproduz_a_convencao_do_notebook_02(bruto, esperado):
+    """Os 11 valores brutos que existem no dado, com o numero que o treino produziu.
+
+    Lista tirada da saida impressa no proprio notebook 02. Qualquer divergencia aqui e
+    skew treino/serving -- o modelo foi treinado nesta escala e nao em outra."""
+    assert cleaning.parse_emp_length(bruto) == esperado
+
+
+def test_menos_de_um_ano_vira_zero_e_nao_um():
+    """O ramo que carrega a funcao inteira.
+
+    A extracao de digitos de '< 1 year' daria 1.0, que e a resposta ERRADA e parece certa:
+    um candidato com menos de um ano de emprego seria pontuado como tendo um ano. Por isso
+    o ramo explicito existe e tem que ficar ACIMA do caminho dos digitos."""
+    assert cleaning.parse_emp_length("< 1 year") == 0.0
+
+
+@pytest.mark.parametrize("lixo", [None, float("nan"), "", "sei la", "years"])
+def test_valor_que_nao_da_pra_ler_vira_ausencia_e_nao_chute(lixo):
+    assert pd.isna(cleaning.parse_emp_length(lixo))
+
+
+def test_REGRESSAO_informar_emp_length_desliga_a_flag_de_ausente(): 
+    """GUARD do P-049, e e o teste que descreve o bug.
+
+    Antes: a API mandava emp_length='10+ years', nada convertia, emp_length_anos nunca
+    chegava ao frame, o passo 1 marcava ausente e o passo 4 sentinelava -1. TODA
+    requisicao era pontuada como 'tempo de emprego desconhecido' -- numa feature de rank
+    26/88 por weight. No treino so 4,355% das linhas sao ausentes; no serving eram 100%."""
+    df = clean_record(pd.DataFrame([dict(MINIMO, emp_length="10+ years")]))
+    assert df["emp_length_anos"].iloc[0] == 10.0
+    assert df["emp_length_missing"].iloc[0] == 0
+
+
+def test_sem_emp_length_continua_ausente_com_sentinela():
+    """A outra metade: quem NAO informa tem que continuar caindo no -1 + flag, que e
+    exatamente o que o treino faz com 4,355% das linhas."""
+    df = clean_record(pd.DataFrame([dict(MINIMO)]))
+    assert df["emp_length_anos"].iloc[0] == -1.0
+    assert df["emp_length_missing"].iloc[0] == 1
+
+
+def test_emp_length_anos_ja_presente_nao_e_sobrescrito():
+    """Caminho do parquet: o split ja traz emp_length_anos e nao traz emp_length."""
+    df = clean_record(pd.DataFrame([dict(MINIMO, emp_length_anos=7.0, emp_length="2 years")]))
+    assert df["emp_length_anos"].iloc[0] == 7.0
+
+
+def test_a_derivacao_acontece_ANTES_da_flag():
+    """A ordem e o item. Derivar depois do passo 1 marcaria como ausente um valor que
+    acabou de ser calculado -- o mesmo bug, uma linha adiante. Este teste quebra se
+    alguem mover o passo 0 para baixo."""
+    df = clean_record(pd.DataFrame([dict(MINIMO, emp_length="3 years")]))
+    assert (df["emp_length_anos"].iloc[0], df["emp_length_missing"].iloc[0]) == (3.0, 0)
