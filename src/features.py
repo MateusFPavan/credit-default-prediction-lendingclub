@@ -11,6 +11,7 @@ on this exact implementation.
 """
 from src.data import CATEGORICAL_COLS, REFERENCE_DATE
 
+import numpy as np
 import pandas as pd
 
 
@@ -88,3 +89,32 @@ def prepare_X(df, feature_cols, categorical_cols=CATEGORICAL_COLS, drop_first=Tr
     cat_present = [c for c in categorical_cols if c in X.columns]
     X = pd.get_dummies(X, columns=cat_present, drop_first=drop_first)
     return X
+def assert_matriz_finita(X, contexto=""):
+    """Raise if the feature matrix contains NaN or +/-Inf. Silent otherwise.
+
+    Bug P-011 (2026-08-31). build_features divides by annual_inc (three ratios) and by
+    total_acc (one), so a zero in either produces Inf or NaN. Measured on the frozen
+    training split: 0 of 90 columns carry NaN or Inf, over 172,988 rows, and no row has
+    annual_inc == 0 or total_acc == 0. So on the training path this check is silent
+    today, by measurement and not by hope.
+
+    Which means: on the training path it cannot fire because of the data -- the parquet is
+    frozen and was measured clean. It fires when SOMEONE CHANGES THE FEATURE CODE. That is
+    what it is for, and it is why it lives here rather than in the notebooks.
+
+    It is deliberately NOT called inside prepare_X. prepare_X is shared by training and
+    serving, and raising on the serving path would kill the drift monitor on a single
+    dirty row. The serving side is guarded differently: src.api narrows the contract so
+    the zero cannot arrive (P-047), and score_frame checks the OUTPUT probability, which
+    cannot be non-finite under any circumstance.
+    """
+    num = X.select_dtypes(include=[np.number])
+    com_nan = [c for c in X.columns if X[c].isna().any()]
+    com_inf = [c for c in num.columns if np.isinf(num[c]).any()]
+    if com_nan or com_inf:
+        raise ValueError(
+            f"Non-finite feature matrix{' (' + contexto + ')' if contexto else ''}: "
+            f"NaN in {com_nan}; Inf in {com_inf}. "
+            "build_features divides by annual_inc and total_acc -- a zero in either is the "
+            "usual cause. See P-011."
+        )

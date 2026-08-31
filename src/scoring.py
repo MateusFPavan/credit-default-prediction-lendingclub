@@ -48,6 +48,7 @@ import functools
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 
 from src.data import FEATURE_SET, CATEGORICAL_COLS
@@ -113,6 +114,22 @@ def score_frame(df: pd.DataFrame, model=None, threshold: float = OPERATIONAL_THR
     X = X.reindex(columns=_trained_columns(model), fill_value=False)
 
     proba = model.predict_proba(X)[:, 1]
+
+    # P-011: probabilidade nao-finita nunca e legitima e nao da pra "tratar" depois --
+    # qualquer consumidor (a API, o threshold, o PSI do monitor) precisa de um numero.
+    # Silencioso por medicao, nao por esperanca: sobre as 172.988 linhas do treino a
+    # saida veio sem NaN, sem Inf e toda dentro de [0,1] (min 0.0009279759, max
+    # 0.7852590084). Este e o guard do lado de SERVING; o lado do treino esta em
+    # features.assert_matriz_finita, e a origem provavel (renda ou total_acc zerados,
+    # que o contrato ainda aceita) esta em P-047.
+    if not np.isfinite(proba).all():
+        ruins = [int(i) for i in np.flatnonzero(~np.isfinite(proba))[:10]]
+        raise ValueError(
+            f"predict_proba devolveu {int((~np.isfinite(proba)).sum())} valor(es) nao "
+            f"finito(s); primeiras posicoes: {ruins}. Entrada com annual_inc ou total_acc "
+            "zerados produz Inf nas razoes de build_features. Ver P-011 e P-047."
+        )
+
     out = pd.DataFrame(index=df.index)
     out["probability_default"] = proba
     out["decision"] = ["reject" if p >= threshold else "approve" for p in proba]
