@@ -216,7 +216,16 @@ always 0 outside the training population).
   **the default rate moved +2.45 points between the training split and the test split
   (0.1243 → 0.1488), and the model's mean prediction tracks the former to three decimal
   places.** That single number is what the PSI monitor exists to catch early.
-- **Recalibration considered and not adopted (2026-08-31)**: isotonic regression and Platt
+- **Recalibration considered and not adopted — twice, by two different routes.**
+  **First attempt** (`docs/technical_report.md` §10): the *retraining* route — base
+  classifier refit on `issue_d <= 2012` with the calibrator fitted on a 2013 holdout.
+  Reliability improved substantially, but the classifier lost **42% of its training data**
+  to the holdout and validation-year profit fell to barely above the approve-all baseline.
+  **Second attempt (2026-08-31)**: the *post-processing* route, which costs no training
+  data at all. The two are complementary rather than redundant — the first shows the
+  retraining route is **too expensive**, the second that the cheap route **buys almost
+  nothing** — and what neither had established, this pass did: the **cause**, in §8.
+  Isotonic regression and Platt
   scaling were both fitted and evaluated without leakage (calibrator fit on one half of
   the test set, evaluated on the other). Both drove the bias to ~0. Isotonic improved
   Brier from 0.1211 to 0.1203 — **0.6%**, which is essentially the entire theoretical gain
