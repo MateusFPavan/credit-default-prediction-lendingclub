@@ -29,9 +29,11 @@ and evaluated to maximize **expected portfolio profit** rather than accuracy or 
 - **Hyperparameters** (frozen): `max_depth=8`, `learning_rate=0.03`, `n_estimators=600`,
   `min_child_weight=10`, `subsample=0.8`, `colsample_bytree=0.6`, `random_state=42`,
   `n_jobs=1`, `eval_metric=logloss`. Operational decision threshold: **0.31**.
-- **Features**: 79 named features, expanding to 90 columns after one-hot encoding 5
+- **Features**: 78 named features, expanding to 90 columns after one-hot encoding 4
   categorical fields (from `train.parquet`'s 89 columns; the rest are target, `EVAL_ONLY`,
-  excluded-by-design, and one dropped redundant column).
+  excluded-by-design, and two dropped columns — `fico_range_high` for redundancy and
+  `application_type` for being constant in training, §9). The column count is unchanged at
+  90 because `application_type` never contributed one.
 - **Versions**: scikit-learn 1.9.0, xgboost 3.3.0, Python 3.12.10.
 - **Trained**: 2026-07-11. Serialized at `models/xgb_final.joblib` (versioned in-repo,
   4.1 MB); hyperparameters, feature list, and a SHA256 of the exact `train.parquet` are
@@ -244,12 +246,17 @@ always 0 outside the training population).
   will know why.
 - **Term non-transferability**: not valid for 60-month loans without a separate scorecard
   (§4); the API enforces `term=36`.
-- **`application_type` is inert (2026-08-31)**: the column was constant in the training
-  split, so one-hot encoding with `drop_first` left it with **zero trained columns**. The
-  model cannot use it and never could. It remains in `FEATURE_SET` and in the API contract,
-  where it is accepted and validated — a reader of the contract would reasonably infer it
-  matters. It does not. Not removed because that requires a retrain, which would move the
-  profit figures published in §8.
+- **`application_type` was inert, and has been removed (2026-08-31)**: the column was
+  constant in the training split, so one-hot encoding with `drop_first` left it with
+  **zero trained columns** — the model never had access to it and never could, while the
+  API required it of every caller and validated it. It is now out of `FEATURE_SET`, out of
+  `CATEGORICAL_COLS` and out of the request schema.
+  **Removing it cost nothing, and that was measured rather than argued**: an ablation
+  retraining without it reproduces $242,230,710.89 **to the cent**, keeps the same 90
+  feature columns (it never contributed one), and the paired bootstrap of the profit
+  difference is `[$0, $0]` — an identity, not a sampling result. The earlier note here
+  said removal "requires a retrain, which would move the profit figures"; that was wrong,
+  and the ablation is why.
 - **Unknown categories score as the base category, silently (2026-08-31)**: a category
   never seen in training produces a column absent from the trained list, which the reindex
   drops — leaving the group at zero, which is *also* how the base category is represented.

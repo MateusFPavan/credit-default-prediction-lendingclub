@@ -91,7 +91,6 @@ class ScoreRequest(BaseModel):
 
     emp_length: Optional[str] = Field(None, description='Ex.: "10+ years", "< 1 year"')
     verification_status: Optional[str] = Field(None)
-    application_type: Optional[str] = Field(None)
     delinq_2yrs: Optional[float] = Field(None, ge=0)
     pub_rec: Optional[float] = Field(None, ge=0)
 

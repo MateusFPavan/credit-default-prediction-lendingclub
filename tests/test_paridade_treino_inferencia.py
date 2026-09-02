@@ -10,8 +10,13 @@ Por que este arquivo existe separado de tests/test_features.py:
   O Monitor 3 pergunta outra coisa: a matriz que o TREINO montou e a matriz que a
   INFERENCIA monta, para as MESMAS linhas, sao iguais elemento a elemento? Responder isso
   exige as 90 colunas do artefato de verdade, porque o caso patologico so aparece em
-  escala real: application_type tem ZERO colunas treinadas (era constante no treino), e
-  nenhum frame sintetico de duas colunas encosta nesse caso.
+  escala real -- nenhum frame sintetico de duas colunas o alcanca.
+
+  O caso que motivou este arquivo era application_type, com ZERO colunas treinadas por ser
+  constante no treino. Ele foi REMOVIDO do FEATURE_SET em 2026-08-31 (P-045), depois de uma
+  ablacao com diferenca de exatamente $0.00. O motivo do arquivo nao mudou: a categoria-BASE
+  de toda coluna categorica continua sem coluna treinada, que e a mesma patologia numa forma
+  que nao da para remover.
 
   Este arquivo nasceu do bloco D do _scratch_p043_prova.py, que fazia exatamente essa
   comparacao e passou -- mas morava num scratch fora do repo, ou seja, a unica prova em
@@ -21,7 +26,7 @@ Por que este arquivo existe separado de tests/test_features.py:
 Nao precisa de parquet: depende so de models/xgb_final.joblib e src/_cleaning_stats.json,
 ambos versionados. O vocabulario de categorias e DERIVADO do artefato, nunca digitado --
 se um retreino mudar as categorias, os testes se ajustam sozinhos, menos os dois que
-documentam achados nomeados (P-045 e P-044), que devem falhar de proposito.
+guardam decisoes nomeadas (P-045 e P-044), que devem falhar de proposito.
 """
 import pandas as pd
 import pytest
@@ -194,20 +199,35 @@ def test_score_de_cada_linha_sozinha_bate_com_o_score_do_lote_inteiro(treinadas)
 
 # ------------------------------------- achados nomeados, mantidos vivos como assert
 
-def test_application_type_nao_tem_coluna_treinada_nenhuma(treinadas):
-    """Documenta o P-045: uma feature morta que o contrato apresenta como viva.
+def test_application_type_continua_fora_do_contrato(treinadas):
+    """Guarda a DECISAO do P-045. Ate 2026-08-31 guardava o DEFEITO.
 
-    Com drop_first, ZERO colunas treinadas so acontece quando a coluna tinha UMA unica
-    categoria no treino -- ou seja, era constante e o modelo nunca pode usa-la. Mas
-    application_type esta no FEATURE_SET, esta no contrato Pydantic da API e e validada em
-    toda requisicao. E a forma benigna do P-043: campo aceito, validado e ignorado.
+    A versao anterior afirmava que application_type tinha ZERO colunas treinadas --
+    documentava uma feature inerte que o contrato da API apresentava como viva. Ela
+    previa UMA forma de ficar obsoleta ("se um retreino incluir mais de uma categoria"),
+    isto e, o achado ser INVALIDADO. Nao previa a forma que de fato aconteceu: o achado
+    ser RESOLVIDO. A feature foi removida do FEATURE_SET, do CATEGORICAL_COLS e do
+    ScoreRequest, e o `cats["application_type"]` passou a levantar KeyError -- o teste
+    virou obstaculo ao proprio conserto que ele existia para motivar.
 
-    Se um retreino incluir mais de uma categoria, este teste falha -- e ai o P-045 deixa de
-    valer e deve ser fechado."""
-    cats = _categorias_por_coluna(treinadas)
-    assert cats["application_type"] == [], (
-        f"application_type agora tem colunas treinadas: {cats['application_type']}. "
-        "Deixou de ser constante -- reavaliar o P-045."
+    Licao registrada em 04_/arquitetura_de_processo.md §21: teste que documenta um achado
+    precisa dizer o que fazer quando o achado for CONSERTADO, nao so quando for
+    desmentido. O caminho do conserto e justamente o que se esta perseguindo.
+
+    A remocao nao foi por argumento: a ablacao deu diferenca de exatamente $0.00 com IC
+    [$0, $0] -- identidade, nao estimativa, porque a feature nunca produziu uma coluna.
+    Agora o teste guarda a saida: quem re-adicionar sem ler o motivo quebra aqui."""
+    from src.data import FEATURE_SET
+
+    assert "application_type" not in FEATURE_SET, (
+        "application_type voltou ao FEATURE_SET. Era constante no treino (zero colunas "
+        "one-hot) e foi removida em 2026-08-31 apos ablacao com delta $0.00. "
+        "Ver MODEL_CARD §9 e CHANGELOG 3.1.0 antes de reverter."
+    )
+    assert "application_type" not in CATEGORICAL_COLS
+    assert not [c for c in treinadas if c.startswith("application_type_")], (
+        "o artefato treinado tem coluna de application_type -- o modelo foi retreinado "
+        "com a feature de volta, e a remocao precisa ser reavaliada"
     )
 
 

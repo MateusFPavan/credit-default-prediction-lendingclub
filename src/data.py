@@ -62,12 +62,21 @@ assert len(_new_features) == 5
 
 # fico_range_high dropped: correlation of 1.0 with fico_range_low (constant spread across
 # the dataset), so it carries no information fico_range_low doesn't already provide.
-_REDUNDANT_COLS = {"fico_range_high": "correlacao 1.0 com fico_range_low"}
+_REDUNDANT_COLS = {
+    "fico_range_high": "correlacao 1.0 com fico_range_low",
+    # Removed 2026-08-31 (P-045/P-008). Constant in the training split, so one-hot
+    # encoding with drop_first left it with ZERO trained columns: the model never had
+    # access to it and never could. Verified by ablation rather than by argument --
+    # retraining without it reproduces $242,230,710.89 to the cent and the feature
+    # matrix keeps the same 90 columns, because it never contributed one. The API
+    # required it of every caller, validated it, and ignored it.
+    "application_type": "constante no treino: zero colunas one-hot, ablacao com delta $0.00",
+}
 
 FEATURE_SET = [c for c in _family_C_features if c not in _REDUNDANT_COLS] + _engineered_flags + _new_features
-assert len(FEATURE_SET) == 79
+assert len(FEATURE_SET) == 78   # was 79 until application_type was removed (P-045)
 
-CATEGORICAL_COLS = ["home_ownership", "purpose", "verification_status", "initial_list_status", "application_type"]
+CATEGORICAL_COLS = ["home_ownership", "purpose", "verification_status", "initial_list_status"]
 REFERENCE_DATE = pd.Timestamp("2000-01-01")
 
 

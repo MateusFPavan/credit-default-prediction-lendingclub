@@ -4,6 +4,34 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-08-31
+
+### Removed
+
+- **BREAKING (request schema) — `application_type` dropped from the feature set and from
+  the API contract.** The column was constant in the training split, so one-hot encoding
+  with `drop_first` left it with **zero trained columns**: the model never had access to it
+  and never could, while the API required it of every caller and validated it. It is now
+  out of `FEATURE_SET` (79 -> 78), out of `CATEGORICAL_COLS` (5 -> 4) and out of
+  `ScoreRequest`. Callers that still send it are unaffected — Pydantic ignores unknown
+  fields.
+
+### Note on published results
+
+**No number changed, and that was measured rather than assumed.** An ablation retraining
+without the feature reproduces $242,230,710.89 **to the cent**, keeps the same **90**
+feature columns (it never contributed one), and the paired bootstrap of the profit
+difference is `[$0, $0]` — an identity, not a sampling result. No retraining is required
+and `models/xgb_final.joblib` is unchanged: its 90 trained column names never included an
+`application_type_*` column, so the serving matrix is byte-identical.
+
+The same ablation tested `emp_length_anos` as a second candidate, on the hypothesis that
+its signal lived in the missingness flag rather than the years. **That hypothesis was
+wrong**: removing it costs **$1,735,339** (-0.72%), with the bootstrap CI entirely
+negative. It stays. Notably its AUC cost is only 0.0007 (0.684563 -> 0.683846) — a second,
+independent instance of this project's central finding that AUC and the business metric
+diverge. Selecting features by AUC would have discarded $1.7M.
+
 ## [3.0.0] - 2026-08-31
 
 ### Fixed
