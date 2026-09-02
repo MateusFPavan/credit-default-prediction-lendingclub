@@ -1,0 +1,35 @@
+{
+  "_comment": "Vocabulario de categorias congelado do split de treino. Gerado por _scratch_p044_gerar_vocabulario.py. Existe para distinguir categoria DESCONHECIDA de categoria-BASE, que sao indistinguiveis a partir do .joblib porque drop_first removeu a coluna da base. Ver P-044.",
+  "_split": "train",
+  "_n_linhas": 172988,
+  "categories": {
+    "home_ownership": [
+      "mortgage",
+      "other",
+      "own",
+      "rent"
+    ],
+    "purpose": [
+      "car",
+      "credit_card",
+      "debt_consolidation",
+      "home_improvement",
+      "house",
+      "major_purchase",
+      "medical",
+      "moving",
+      "other",
+      "small_business",
+      "vacation"
+    ],
+    "verification_status": [
+      "not verified",
+      "source verified",
+      "verified"
+    ],
+    "initial_list_status": [
+      "f",
+      "w"
+    ]
+  }
+}
