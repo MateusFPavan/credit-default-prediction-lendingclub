@@ -275,6 +275,54 @@ and validation-year profit dropped to barely above the approve-all baseline. **T
 reported as an honest trade-off, not a suppressed negative result**: recalibration cost
 more in training data than it returned in profit for this model, and was not adopted.
 
+**Second pass, 2026-08-31: the post-processing route, and the cause.** The experiment
+above tests *retraining*. The complementary question was left open: what does calibration
+cost and return if the model is left untouched and only the score is transformed?
+Post-processing costs no training data at all, so the trade-off that killed the first
+attempt does not apply. Isotonic regression and Platt scaling were fitted on the score
+without leakage (calibrator fit on one half of the test set, evaluated on the other).
+
+| | Brier | log-loss | AUC | mean bias |
+|---|---|---|---|---|
+| raw | 0.1211 | 0.3985 | 0.6818 | -0.0251 |
+| isotonic | **0.1203** | 0.3950 | 0.6814 | -0.0007 |
+| Platt | 0.1213 | 0.3987 | 0.6818 | -0.0006 |
+
+Both drive the mean bias to ~0. Isotonic improves Brier by **0.6%** — which is
+essentially the entire gain theoretically available, since the squared bias is only
+0.00063. Platt removes the bias but makes Brier slightly *worse*, indicating the
+miscalibration is not sigmoid-shaped. AUC moves by 0.0004 in both, confirming the
+transform is monotone. Re-mapping the 0.31 threshold into the calibrated space changes
+profit by $106,162 on $242.2M — **0.04%, an order of magnitude inside the profit
+confidence interval** reported in §7, and driven by 162 applicants sitting on an isotonic
+plateau where the calibrated model genuinely cannot separate them.
+
+**The cause, which neither pass had established.** The model's mean prediction on the 2015
+test set is **0.1240**; the base rate of the split it was *trained* on is **0.1243**. It
+reproduces its own training period's default rate to three decimal places, while 2015
+defaulted at **0.1488**. The miscalibration is base-rate shift, not a defective estimator:
+the model is well calibrated for 2007-2013 and is being asked about 2015.
+
+| split | N | default rate |
+|---|---|---|
+| train (2007-2013) | 172,988 | 0.1243 |
+| validation (2014) | 162,570 | 0.1373 |
+| test (2015) | 282,787 | **0.1488** |
+
+And the shift is **cyclical rather than trending**: within the training window the annual
+default rate runs 17.9% (2007) → 9.9% (2010) → 13.6% (2012) → 12.3% (2013), tracking the
+credit cycle. This is what makes the second rejection rest on more than the 0.6% figure:
+**there is no stable target to calibrate to.** Validation (2014) sits between train and
+test, so calibrating to it would be less wrong rather than right, and a calibrator fitted
+on any past window is already stale for the next one. Honest recalibration is therefore an
+operational commitment to refit periodically, which a project with no production traffic
+cannot make.
+
+Documented instead: a consumer needing an absolute PD for a 2015-like population can apply
+the measured **+2.45-point** offset, and knows why it is there. The two passes are
+complementary — the first shows the retraining route is too expensive, the second that the
+cheap route buys almost nothing, and the cause explains both.
+
 ## 11. Limitations, Bias, and Risks
 
 - **Selection bias.** The model estimates P(default | approved), never having observed a

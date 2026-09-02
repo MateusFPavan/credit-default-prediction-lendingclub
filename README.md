@@ -127,9 +127,14 @@ smoothed over in an aggregate metric:
 - **Not transferable to 60-month loans** without a dedicated scorecard. Applied without
   refitting, performance degrades severely, which is evidence that 36- and 60-month
   loans are structurally distinct risk populations.
-- **Optimistic calibration**: observed default exceeds predicted in every decile, so the
-  raw score should not be treated as a conservative probability. A recalibration attempt
-  was tested and rejected (it cost 42% of training data for no net profit gain).
+- **Optimistic calibration, and the reason is measured**: observed default exceeds
+  predicted in every decile (mean bias -0.0248). The cause is base-rate shift, not a
+  broken estimator — the model's mean prediction (0.1240) reproduces the default rate of
+  the split it was *trained* on (0.1243), while the 2015 test set defaulted at 0.1488.
+  Recalibration was tested and rejected twice, by two different routes: retraining cost
+  42% of training data for no net profit gain, and post-processing costs nothing but
+  returns 0.6% of Brier. Neither is worth it, because the default rate follows the
+  **credit cycle** rather than a trend — so there is no stable target to calibrate to.
 
 Remaining next steps (deliberate, not gaps): a dedicated 60-month scorecard, automated
 retraining execution with alerting, and monitoring against a real production batch.
