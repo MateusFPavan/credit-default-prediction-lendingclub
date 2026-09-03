@@ -13,3 +13,8 @@ __pycache__/
 # exception: the final model is versioned (4 MB) so that CI/Docker and "clone and run"
 # work on a clean checkout. The logistic baseline stays ignored (not used by the API).
 !models/xgb_final.joblib
+# marts: the four dimension CSVs ARE versioned (195 rows total) because they are small,
+# readable in a diff, and document the model without needing the data. The fact table is
+# not, for the same reason as the other processed parquets.
+data/marts/*.parquet
+data/marts/*_sample.csv

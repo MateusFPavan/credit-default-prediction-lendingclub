@@ -1,0 +1,47 @@
+profile_key,home_ownership,verification_status,initial_list_status,term
+1,mortgage,not verified,f,36.0
+2,mortgage,not verified,f,60.0
+3,mortgage,not verified,w,36.0
+4,mortgage,not verified,w,60.0
+5,mortgage,source verified,f,36.0
+6,mortgage,source verified,f,60.0
+7,mortgage,source verified,w,36.0
+8,mortgage,source verified,w,60.0
+9,mortgage,verified,f,36.0
+10,mortgage,verified,f,60.0
+11,mortgage,verified,w,36.0
+12,mortgage,verified,w,60.0
+13,other,not verified,f,36.0
+14,other,not verified,f,60.0
+15,other,not verified,w,36.0
+16,other,source verified,f,36.0
+17,other,source verified,f,60.0
+18,other,source verified,w,36.0
+19,other,verified,f,36.0
+20,other,verified,f,60.0
+21,other,verified,w,36.0
+22,other,verified,w,60.0
+23,own,not verified,f,36.0
+24,own,not verified,f,60.0
+25,own,not verified,w,36.0
+26,own,not verified,w,60.0
+27,own,source verified,f,36.0
+28,own,source verified,f,60.0
+29,own,source verified,w,36.0
+30,own,source verified,w,60.0
+31,own,verified,f,36.0
+32,own,verified,f,60.0
+33,own,verified,w,36.0
+34,own,verified,w,60.0
+35,rent,not verified,f,36.0
+36,rent,not verified,f,60.0
+37,rent,not verified,w,36.0
+38,rent,not verified,w,60.0
+39,rent,source verified,f,36.0
+40,rent,source verified,f,60.0
+41,rent,source verified,w,36.0
+42,rent,source verified,w,60.0
+43,rent,verified,f,36.0
+44,rent,verified,f,60.0
+45,rent,verified,w,36.0
+46,rent,verified,w,60.0
