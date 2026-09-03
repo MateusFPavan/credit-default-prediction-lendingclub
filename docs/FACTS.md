@@ -1,4 +1,10 @@
 # FACTS.md: Canonical Facts Sheet
+> **Escopo desta folha.** Cobre o modelo de emprestimos APROVADOS, com numeros extraidos em
+> 2026-07-12. **Nao cobre**: a investigacao de reject inference (notebooks 16-20, incluindo a
+> ingestao em PySpark/Databricks, o DuckDB e a avaliacao bayesiana), a auditoria do caminho de
+> serving da versao 3.0.0, nem a suite de testes. Para esses, as fontes sao o `README.md`,
+> `docs/reject_inference_roadmap.md` e o `CHANGELOG.md`. Nesta folha, a palavra "rejected"
+> significa *recusado pelo modelo no corte 0,31* -- nao tem relacao com reject inference.
 
 Single source of truth for all downstream documentation (README, technical report,
 one-pager). Every number here was extracted by direct reading of the project's actual

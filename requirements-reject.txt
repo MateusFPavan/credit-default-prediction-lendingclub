@@ -1,0 +1,5 @@
+﻿# Dependencias APENAS dos notebooks 16-20 (investigacao de reject inference).
+# A pipeline principal (requirements.txt) e a API (requirements-api.txt) nao precisam disto.
+# Instale com: pip install -r requirements-reject.txt
+pyspark==4.2.0
+duckdb==1.5.5

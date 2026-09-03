@@ -1,7 +1,7 @@
 ---
 model_name: credit-default-prediction-lendingclub / XGB_walkforward
-model_version: 2.0.0
-version_date: 2026-08-06
+model_version: 3.0.0
+version_date: 2026-08-31
 task: binary-classification (credit default prediction)
 library: scikit-learn, xgboost
 language: en
@@ -11,7 +11,7 @@ data_license: CC0-1.0
 
 # Model Card: XGB_walkforward (Lending Club Credit Default)
 
-**Model version: 2.0.0 — 2026-08-06.** Version history in §12.
+**Model version: 3.0.0 — 2026-08-31.** Version history in §12.
 
 Related docs: data card at [`docs/DATA_CARD.md`](DATA_CARD.md); setup and reproduction at
 [`docs/SETUP.md`](SETUP.md); full verified facts sheet at [`docs/FACTS.md`](FACTS.md).
