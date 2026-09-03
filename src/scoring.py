@@ -45,6 +45,8 @@ _cleaning_stats.json already freezes the medians. Tracked as P-044.
 from __future__ import annotations
 
 import functools
+import json
+import logging
 from pathlib import Path
 
 import joblib
@@ -60,6 +62,53 @@ OPERATIONAL_THRESHOLD = 0.31
 DATETIME_COLS = ("issue_d", "earliest_cr_line")
 
 _MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "xgb_final.joblib"
+_CATEGORY_STATS_PATH = Path(__file__).parent / "_category_stats.json"
+
+log = logging.getLogger(__name__)
+
+
+@functools.lru_cache(maxsize=1)
+def _training_vocabulary() -> dict:
+    """The training split's category vocabulary, frozen to disk (P-044).
+
+    Closes the gap named in the module docstring: until this file existed, an unseen
+    category was indistinguishable from the BASE category *from the artifact*, because
+    drop_first removed the base's column at training time. That is why a warning written
+    on 2026-08-30 fired on every single request and had to be removed. With the vocabulary
+    frozen the distinction exists: the base IS in this list; an unseen value is not.
+
+    Same pattern as _cleaning_stats.json, same reason: a population-dependent statistic
+    cannot be recomputed at inference. Returns {} if the file is absent, so an older
+    checkout degrades to the previous silent behaviour instead of crashing.
+    """
+    if not _CATEGORY_STATS_PATH.exists():
+        return {}
+    return json.loads(_CATEGORY_STATS_PATH.read_text(encoding="utf-8")).get("categories", {})
+
+
+def _warn_unseen_categories(df: pd.DataFrame) -> None:
+    """Logs one warning per genuinely-unseen category value. Silent otherwise.
+
+    Silent on the happy path BY CONSTRUCTION, not by hope: every legitimate value is in
+    the frozen list, base category included. That is the whole difference from the
+    2026-08-30 attempt, which compared produced columns against trained columns -- and the
+    base has no trained column, so application_type (zero trained columns) made every
+    request warn.
+
+    Warns instead of raising, deliberately: raising would kill the drift monitor on one
+    dirty row in a batch, and the score is still produced (the value encodes as all-zeros,
+    i.e. as the base category). The caller needs to know it happened; it does not need the
+    batch aborted.
+    """
+    for coluna, conhecidas in _training_vocabulary().items():
+        if coluna not in df.columns:
+            continue
+        novas = sorted(set(df[coluna].dropna().astype(str).unique()) - set(conhecidas))
+        if novas:
+            log.warning(
+                "categoria nao vista no treino em %r: %s -- sera pontuada como a "
+                "categoria-base. Conhecidas: %s (P-044)", coluna, novas, conhecidas,
+            )
 
 
 @functools.lru_cache(maxsize=1)
@@ -104,6 +153,7 @@ def score_frame(df: pd.DataFrame, model=None, threshold: float = OPERATIONAL_THR
         model = load_model()
 
     df = _normalize_dates(df.copy())
+    _warn_unseen_categories(df)   # P-044, antes do cleaning tocar as colunas
     df = clean_record(df)  # applies notebook 03's sentinels/flags/medians
     df_feat = build_features(df)
     X = prepare_X(df_feat, FEATURE_SET, CATEGORICAL_COLS, drop_first=False)
