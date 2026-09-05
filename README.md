@@ -41,6 +41,19 @@ decisions as-is.
 [![Credit risk dashboard](dashboard/screenshots/01_performance.png)](https://mateusfpavan.github.io/credit-default-prediction-lendingclub/)
 
 A Power BI version of the same analysis (`.pbix` + screenshots) lives in [`dashboard/`](dashboard/).
+### Dimensional model
+
+The dashboard tables above are pre-aggregated results: they answer the questions someone
+decided in advance and cannot answer anything else. `python -m src.build_marts` publishes the
+underlying grain instead -- a **star schema** with `fct_loan` at one row per loan contract
+(673,314 rows) and four dimensions, so *"what is the default rate for grade D loans issued in
+2013?"* gets asked in the tool rather than in Python.
+
+The four dimension tables are versioned in [`data/marts/`](data/marts/) (195 rows total). Grain,
+keys, referential-integrity checks and the reasoning behind each modelling choice -- why the
+train/validation/test split is an **attribute of the date dimension** rather than a dimension of
+its own, and why four low-cardinality flags become one **junk dimension** instead of four tables
+-- are in [`docs/DIMENSIONAL_MODEL.md`](docs/DIMENSIONAL_MODEL.md).
 
 ## Key Results
 
@@ -282,7 +295,8 @@ src/             data · features · economics · models · psi · scoring · cl
 models/          xgb_final.joblib (versioned) + model_meta.json; logistic_baseline.joblib (gitignored)
 reports/figures/ business-impact figures
 reports/reject/  reject-inference data artifacts (coverage, comparison, provenance manifest)
-docs/            technical report, data card, model card, setup guide, facts sheet, reject-inference roadmap
+docs/            technical report, data card, model card, setup guide, facts sheet, reject-inference roadmap, dimensional model
+data/marts/      star-schema tables: fct_loan + four dimensions (see docs/DIMENSIONAL_MODEL.md)
 dashboard/       Power BI (.pbix) + theme + screenshots; interactive web dashboard in docs/index.html
 references/      one-page recruiter case studies (EN and pt-BR)
 Dockerfile       containerized inference API
@@ -306,7 +320,7 @@ Dockerfile       containerized inference API
 
 ## Stack
 
-Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib · FastAPI · Docker · GitHub Actions · PySpark · Databricks · DuckDB
+Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib · FastAPI · Docker · GitHub Actions · Power BI · PySpark · Databricks · DuckDB
 
 ## License & Contact
 
