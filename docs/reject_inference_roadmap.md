@@ -836,3 +836,46 @@ Referências: *Illusion of Improvement* (arXiv 2606.18479); Kozodoi (arXiv 1909.
 (`feat(reject): avaliacao Bayesiana + varredura de prior (Fase 2b)`,
 `docs(reject): registrar tese da Fase 2b -- Bayesian herda e amplifica a limitacao (fecha
 Fase 2)`), sem push.
+
+## Fase 3 — Bloco 1: análise de vintage (safra) — verificação cruzada do corte de maturidade
+
+Análise de vintage sobre os APROVADOS (`notebooks/21_vintage_analysis.py`): default rate por
+safra de originação (`issue_d`), no geral e por `term`, mais volume comparativo aprovados vs
+recusados por safra. Roll rate verdadeiro (corrente→30→60→90→default) foi **verificado e
+documentado como não-calculável**: `loan_status` só tem dois valores terminais (Charged Off,
+Fully Paid) e as colunas `mths_since_*` são snapshots pontuais, não série mensal de status por
+empréstimo — o Lending Club não fornece a trajetória que roll rate exige. Resultado
+documentado com a evidência (as colunas inspecionadas), não omitido.
+
+### Achado: a vintage por safra × term reconfirmou, por fora, o corte de maturidade do v2.0.0
+
+A tabela de default rate por safra × term mostrou 2014 e 2015 só com `term=36`. A primeira
+hipótese (censura temporal — 60 meses ainda não maturado no corte do dado bruto) foi testada
+contra `data/raw/accepted_2007_to_2018Q4.csv` e **descartada**: existem ~153 mil empréstimos
+de 60 meses de 2014-2015 já fechados (Charged Off/Fully Paid) no bruto. A causa real, rastreada
+até `notebooks/03_build_processed.py`, é um corte de maturidade intencional
+(`CUTOFF_36 = 2015-12-01`, `CUTOFF_60 = 2013-12-01`, cada um = última data do arquivo menos o
+prazo contratual), que exclui **todo** 60-meses emitido após dez/2013 — mesmo já fechado —
+para evitar viés de maturidade: incluir só os que fecharam cedo enviesaria a safra para
+desfechos rápidos, não representativos do cohort inteiro.
+
+Essa regra já estava documentada em `docs/scope.md`, `docs/DATA_CARD.md` e `docs/FACTS.md`,
+com o funil de exclusão reconciliando exatamente em 673.553 linhas. A análise de vintage
+chegou à mesma regra **de forma independente**, investigando o dado bruto sem consultar esses
+documentos primeiro, e bateu ao número.
+
+**Isso é verificação cruzada, não achado de bug**: fortalece a confiança no pipeline
+v2.0.0/v3.0.0 em vez de enfraquecê-la — é evidência de que a limpeza foi auditada, não
+assumida. Nota de método: toda análise, mesmo sem produzir número novo, é importante se nos
+faz concluir algo — aqui a análise de vintage confirmou uma decisão de dado já tomada, que é
+um resultado por si só.
+
+**Consequência de leitura**: não comparar `default_rate` de 2014-2015 (só 36m) com anos
+anteriores (36m+60m) como se fossem a mesma composição. 60 meses tem default rate ~2x o de 36
+meses em todo ano com os dois presentes; a queda aparente de 2014-2015 pode ser efeito de mix,
+não melhora real de safra.
+
+**Estado**: Bloco 1 — FECHADO. Commitado localmente
+(`feat(reject): analise de vintage por safra (aprovados) + roll rate documentado como
+nao-calculavel`, `docs(reject): registrar vintage como verificacao cruzada do corte de
+maturidade`), sem push.
