@@ -23,3 +23,22 @@
 
 ## Sobrescrita de arquivo
 - Validar o CONTEÚDO (grep de um marcador esperado) antes de sobrescrever — não confiar no nome.
+
+## Específico deste repo (crédito Lending Club)
+<!-- ultima atualizacao: 2026-09-15 -->
+
+### População e escopo
+- População analítica: só empréstimos com desfecho concluído (Fully Paid / Charged Off).
+- Corte de maturidade: 36m emitidos até Dez/2015; 60m até Dez/2013 (evita viés de maturidade).
+  NÃO reincluir vintages imaturas — é decisão documentada em docs/scope.md.
+- FEATURE_SET tem 78 features (application_type removido em P-045), 4 categóricas.
+
+### Reject inference (v3.0.0)
+- Tese fechada: RI não é validável no Lending Club (sem outcome de recusado, sem taxa
+  populacional). Isso é SEÇÃO HONESTA no portfólio, NÃO manchete.
+- Processo interno do projeto fica em _processo_interno/ (ignorado, não vai ao GitHub).
+
+### Documentação
+- docs/reject_inference_roadmap.md é a fonte única de decisões deste projeto.
+- Ao mexer em doc, procurar frases que a mudança tornou MENTIRA (ex.: "not deployed" quando
+  já há deploy), não só adicionar o novo.
