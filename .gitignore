@@ -18,3 +18,8 @@ __pycache__/
 # not, for the same reason as the other processed parquets.
 data/marts/*.parquet
 data/marts/*_sample.csv
+
+# internal process docs (how-we-work rules, decision tables, blind-spot notes): not
+# portfolio, stays local. A public repo is judged by result/code/README/Model Card, not by
+# how much of the process was assistant-driven -- keep the two separate on purpose.
+_processo_interno/
