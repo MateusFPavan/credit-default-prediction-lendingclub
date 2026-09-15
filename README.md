@@ -237,7 +237,7 @@ evidence, not adopted.
 ## The Model
 
 XGBoost wrapped for interface consistency alongside a scikit-learn `Pipeline` logistic
-baseline. 79 named features, expanding to 90 columns after one-hot encoding. Serialized
+baseline. 78 named features, expanding to 90 columns after one-hot encoding. Serialized
 with `joblib` at `models/xgb_final.joblib`. Hyperparameters, feature list, and a SHA256 of
 the exact training data are recorded in `models/model_meta.json`. Reproducible end to end
 via `python run_all.py` (~3 minutes, CPU only). Bit-exact determinism requires three

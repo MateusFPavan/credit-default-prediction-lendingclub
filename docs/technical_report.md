@@ -108,7 +108,7 @@ Leakage was screened on three independent fronts:
 
 ## 5. Feature Engineering
 
-79 named features enter the model, expanding to 90 columns after one-hot encoding of 5
+78 named features enter the model, expanding to 90 columns after one-hot encoding of 4
 categorical fields. Five interpretable ratio features were engineered from raw
 origination-time fields: `installment_to_income`, `loan_to_income`, `credit_history_months`,
 `revol_bal_to_income`, and `open_acc_ratio`. `installment_to_income` is the strongest of
@@ -252,7 +252,7 @@ minutes, over the compute budget for this analysis). Top features by mean |SHAP|
 `fico_range_low`, `installment_to_income`, `annual_inc`, `acc_open_past_24mths`, `dti`.
 One confound is worth naming: `verification_status` shows a Simpson's-paradox pattern:
 its univariate association (verified income correlates with *higher* default) partly
-reverses once the other 78 features are controlled for. This indicates some of the
+reverses once the other 77 features are controlled for. This indicates some of the
 univariate signal was confounded by correlated features rather than reflecting a direct
 causal reading of verification status itself.
 
