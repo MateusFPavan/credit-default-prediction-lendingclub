@@ -1,7 +1,7 @@
 ---
 model_name: credit-default-prediction-lendingclub / XGB_walkforward
-model_version: 3.0.0
-version_date: 2026-08-31
+model_version: 3.1.0
+version_date: 2026-09-16
 task: binary-classification (credit default prediction)
 library: scikit-learn, xgboost
 language: en
@@ -11,7 +11,8 @@ data_license: CC0-1.0
 
 # Model Card: XGB_walkforward (Lending Club Credit Default)
 
-**Model version: 3.0.0 — 2026-08-31.** Version history in §12.
+**Model version: 3.1.0 — 2026-09-16 (label aligned to content already in this card).**
+Version history in §12.
 
 Related docs: data card at [`docs/DATA_CARD.md`](DATA_CARD.md); setup and reproduction at
 [`docs/SETUP.md`](SETUP.md); full verified facts sheet at [`docs/FACTS.md`](FACTS.md).
@@ -257,14 +258,20 @@ always 0 outside the training population).
   difference is `[$0, $0]` — an identity, not a sampling result. The earlier note here
   said removal "requires a retrain, which would move the profit figures"; that was wrong,
   and the ablation is why.
-- **Unknown categories score as the base category, silently (2026-08-31)**: a category
-  never seen in training produces a column absent from the trained list, which the reindex
-  drops — leaving the group at zero, which is *also* how the base category is represented.
-  The two are **indistinguishable from the serialized artifact**, because `drop_first`
-  removed the base's column at training time. A first attempt at warning was written and
-  removed: it fired on every request. Distinguishing them requires the training vocabulary
-  frozen to disk, the way `_cleaning_stats.json` already freezes the imputation medians.
-  Recorded as a named gap, not a silently accepted one.
+- **Unknown categories still score as the base category, but the API now warns when this
+  happens (implemented 2026-09-02).** A category never seen in training produces a column
+  absent from the trained list, which the reindex drops — leaving the group at zero, which
+  is *also* how the base category is represented. The two remain **indistinguishable from
+  the serialized artifact alone**, because `drop_first` removed the base's column at
+  training time. A first attempt at warning was written and removed, because it compared
+  produced columns against trained columns and fired on every single request. The fix
+  instead freezes the training vocabulary to disk (`src/_category_stats.json`, the same
+  pattern `_cleaning_stats.json` already uses for imputation medians) and checks each
+  incoming category against it: the base category **is** in that frozen list, so the
+  happy path stays silent by construction, and a genuinely unseen value logs a warning
+  naming the column and the value. The score itself is unaffected either way — it still
+  encodes as the base category — but the caller is no longer left uninformed that it
+  happened.
 
 ## 10. Production: serving, drift monitoring, and retraining
 
@@ -318,6 +325,17 @@ reproduction entry point (`docs/SETUP.md`).
 
 ## 12. Version history
 
+- **3.1.0 — 2026-08-31** — **`application_type` removed; unseen-category handling closed
+  out.** MINOR bump: backward-compatible, nothing a prior contract relied on breaks.
+  `application_type` was constant in the training split (zero trained one-hot columns) and
+  is now out of `FEATURE_SET`, `CATEGORICAL_COLS`, and the request schema (§9); an ablation
+  retraining without it reproduced $242,230,710.89 to the cent, so removing it cost
+  nothing. The gap this card used to name — that a category unseen in training was
+  indistinguishable from the base category, silently — was closed on 2026-09-02: `src/scoring.py`
+  now checks incoming categories against a frozen training vocabulary
+  (`src/_category_stats.json`) and warns on a genuine mismatch instead of staying silent
+  (§9). This label was applied to the card retroactively; the content above already
+  reflected both changes.
 - **3.0.0 — 2026-08-31** — **Serving correctness.** Five defects were found and fixed in
   the inference path; the API now returns different probabilities than it did for the same
   input, and the previous outputs were wrong. MAJOR bump by this card's own stated rule:

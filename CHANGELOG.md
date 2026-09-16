@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   routes (retraining and post-processing) were both tested and rejected, and that
   reasoning is now recorded alongside the cause.
 
+### Fixed
+
+- MODEL_CARD version label aligned to 3.1.0; unseen-category safeguard re-documented as
+  implemented.
+
 ## [3.1.0] - 2026-08-31
 
 ### Removed
