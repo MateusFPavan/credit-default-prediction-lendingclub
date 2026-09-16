@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README: a new "Dimensional model" section pointing to the star schema above, and
   `Power BI` added to the listed stack (the `.pbix` file has been in the repository for
   weeks without being named there).
+- `docs/SETUP.md` (now 2.1.0) documents `requirements-reject.txt` and the CI's
+  `unit-tests` job (`pytest tests/ -v`, 146 tests), which runs before the build/smoke-test
+  job and was previously undocumented.
 
 ### Changed
 

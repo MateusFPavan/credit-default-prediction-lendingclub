@@ -1,6 +1,6 @@
 # Setup & Reproducibility Guide
 
-**Version: 2.0.1 · Last updated: 2026-08-06.** Changelog in `CHANGELOG.md`.
+**Version: 2.1.0 · Last updated: 2026-09-16.** Changelog in `CHANGELOG.md`.
 
 Follows the spirit of the NeurIPS ML Code Completeness Checklist: dependencies,
 exact commands, expected results, and honest scope boundaries.
@@ -41,6 +41,14 @@ kernel. Register it once, after installing dependencies (works identically in ba
 PowerShell):
 ```bash
 python -m ipykernel install --user --name=credit-default-prediction-lendingclub
+```
+
+`requirements-reject.txt` is a **separate** file for the reject-inference notebooks
+(`16` through `20`) only: `pyspark` and `duckdb`. Neither `run_all.py` nor the API needs
+it, so it is not part of `requirements.txt`. Install it only if you intend to run those
+notebooks:
+```bash
+pip install -r requirements-reject.txt
 ```
 
 ## 3. Data access
@@ -156,11 +164,12 @@ No GPU, no distributed setup, no special hardware.
 - **Wanting to reproduce notebooks 06-11 (tuning/bootstrap) too**: expect hours, not
   minutes. Run each via `jupyter nbconvert --execute --inplace` individually rather than
   through `run_all.py`, which does not include them by design (§5).
-- **Containerized / CI reproduction**: the inference API is containerized (`Dockerfile`,
-  see section 9) and built + smoke-tested on every push via GitHub Actions
-  (`.github/workflows/docker.yml`). No Makefile is provided (`make` was unavailable on
-  the development machine); the single entry point for the full pipeline is `run_all.py`
-  (section 5), and container serving is documented in section 9.
+- **Containerized / CI reproduction**: on every push, GitHub Actions
+  (`.github/workflows/docker.yml`) runs the full test suite (`pytest tests/ -v`, 146
+  tests) in a `unit-tests` job first; only if that passes does a second job build the
+  inference API image and smoke-test it (see section 9). No Makefile is provided (`make`
+  was unavailable on the development machine); the single entry point for the full
+  pipeline is `run_all.py` (section 5), and container serving is documented in section 9.
 
 ---
 
@@ -190,6 +199,9 @@ scoring -> cleaning -> features -> data`) and only `models/xgb_final.joblib` (th
 logistic baseline is not used by the API). `libgomp1` is installed via apt because
 XGBoost requires it in a slim image.
 
-The build and a full smoke test (bring up the container, `/health`, a real `/score`, and
-the 422 check on invalid input) run automatically on GitHub Actions on every push to
-`main` (`.github/workflows/docker.yml`) — local Docker is not required to validate.
+On every push to `main`, `.github/workflows/docker.yml` runs two jobs in order: first
+`unit-tests` (`pytest tests/ -v`, the full 146-test suite, using the lean
+`requirements-api.txt` plus `pytest`/`httpx` rather than the full research environment),
+then, only if that passes, `build-and-smoke-test` — building the image and bringing up
+the container for `/health`, a real `/score`, and the 422 check on invalid input. Local
+Docker is not required to validate either job.
