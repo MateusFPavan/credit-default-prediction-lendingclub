@@ -4,6 +4,37 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-09-16
+
+### Added
+
+- **Unseen-category warning at inference, backed by a frozen training vocabulary.** The
+  training split's category vocabulary is now frozen to disk
+  (`src/_category_stats.json`, same pattern as `_cleaning_stats.json`). `score_frame`
+  compares each incoming category against it and logs a warning when a value was never
+  seen in training, instead of scoring it silently as the base category with no signal
+  that anything unusual happened.
+- **`requirements-reject.txt`**, declaring the dependencies used only by the
+  reject-inference notebooks (`16`-`20`): `pyspark` and `duckdb`. These were part of the
+  project's stack but were never pinned in any requirements file.
+- **Dimensional (star-schema) model of the analytical population.** `src/build_marts.py`
+  publishes `fct_loan` (one row per loan contract) against four dimension tables,
+  documented in `docs/DIMENSIONAL_MODEL.md`. Lets a question like "default rate for
+  grade D loans issued in 2013" be asked directly against the tables instead of in code.
+- README: a new "Dimensional model" section pointing to the star schema above, and
+  `Power BI` added to the listed stack (the `.pbix` file has been in the repository for
+  weeks without being named there).
+
+### Changed
+
+- **The calibration drift now has a documented cause, not just a measured direction.**
+  `docs/MODEL_CARD.md` (§8-9) and `docs/technical_report.md` (§10) were expanded: the
+  model's mean prediction on the 2015 test set reproduces the training split's default
+  rate to three decimal places, so the miscalibration is base-rate shift between the
+  training period and the test period, not a defective estimator. Two recalibration
+  routes (retraining and post-processing) were both tested and rejected, and that
+  reasoning is now recorded alongside the cause.
+
 ## [3.1.0] - 2026-08-31
 
 ### Removed
