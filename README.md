@@ -117,9 +117,10 @@ still governs what the scores may be used for.
   *artifacts* (the definitional `issue_d` split cut), and refuses to score batches below a
   measured sample floor where PSI is just noise.
 - **Containerized + CI**: a [`Dockerfile`](Dockerfile) serves the API from a lean,
-  serving-only dependency set; a [GitHub Actions workflow](.github/workflows/docker.yml)
-  builds the image and smoke-tests `/health`, a real `/score`, and the 422 path on every
-  push.
+  serving-only dependency set. On every push, a [GitHub Actions
+  workflow](.github/workflows/docker.yml) runs the full test suite (`pytest tests/ -v`,
+  146 tests) first; only if that passes does it build the image and smoke-test
+  `/health`, a real `/score`, and the 422 path.
 
 Serving, monitoring, and the retraining trigger are documented in
 [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) §10.
@@ -300,7 +301,7 @@ data/marts/      star-schema tables: fct_loan + four dimensions (see docs/DIMENS
 dashboard/       Power BI (.pbix) + theme + screenshots; interactive web dashboard in docs/index.html
 references/      one-page recruiter case studies (EN and pt-BR)
 Dockerfile       containerized inference API
-.github/         GitHub Actions CI (build + smoke-test the container)
+.github/         GitHub Actions CI (unit tests -> build -> smoke-test the container)
 ```
 
 ## Documentation Index

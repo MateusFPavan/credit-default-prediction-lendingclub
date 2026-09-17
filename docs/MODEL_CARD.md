@@ -286,8 +286,9 @@ encoding (`src/scoring.py` → `src/cleaning.py` → `src/features.py`), never a
 reimplementation, normalizing raw inputs into the same sentinel/flag treatment as training
 (`docs/DATA_CARD.md` §4). Invalid or out-of-range input returns HTTP 422, not a silent
 error; `term` is restricted to 36 (§4). A container (`Dockerfile`, lean
-`requirements-api.txt`) serves the API, and a GitHub Actions workflow builds and
-smoke-tests `/health`, a real `/score`, and the 422 path on every push (`docs/SETUP.md` §9).
+`requirements-api.txt`) serves the API. On every push, a GitHub Actions workflow runs the
+full test suite (`pytest tests/ -v`, 146 tests) first, then builds the image and
+smoke-tests `/health`, a real `/score`, and the 422 path (`docs/SETUP.md` §9).
 
 **Drift monitoring.** `src/monitor.py` reuses the Phase-1 PSI engine (`src/psi.py`) to
 compare an incoming batch against the "clean" training baseline (`era_pre_2012 == 0`) —
