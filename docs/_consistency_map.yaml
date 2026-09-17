@@ -1,0 +1,86 @@
+# Mapa de consistência entre documentos. Fonte canônica -> consumidores.
+#
+# tipo:      "single" (um fato/valor esperado em todos que mencionam o assunto)
+#            "multi"  (escopos legítimos diferentes, não checar valor único)
+# severity:  "high" (quebra -> task) | "low" (cosmético/nota historica -> acumulador)
+#
+# Como cada fato "single" e checado (scripts/check_consistency.py):
+#   1. topic  -- regex: o consumer FALA desse assunto em algum ponto?
+#   2. Se sim, dentro de uma janela de texto ao redor da mencao:
+#        - accept -- lista de formas EQUIVALENTES corretas de expressar o fato
+#                     (qualquer uma serve; nao exige palavra exata)
+#        - wrong  -- lista opcional de formas EXPLICITAMENTE erradas (ex.: contagem antiga)
+#   3. Se a janela bate com alguma 'wrong', OU nao bate com nenhuma 'accept' -> diverge.
+#   4. Se o consumer nunca menciona o topic, ele simplesmente nao e checado ali --
+#      "nao mencionar" nao e violacao.
+#
+# Historico de ajustes (confirmados no disco antes de cada mudanca):
+# - 2026-09-17: primeira versao usava checagem por substring solta (ex.: "78" em
+#   qualquer lugar do doc), que mascarava o LOW esperado (roadmap.md tem "78" por
+#   coincidencia em "255.470.782" e "0,0878", nada a ver com contagem de features) e
+#   um topic amplo demais ("CI") que casava dentro de "decision", "specific" etc.
+#   Reescrito para o modelo topic+accept+wrong acima, com cada padrao testado contra
+#   o texto real de cada consumidor antes de fixar no mapa.
+# - maturity_cutoff: a frase literal "Dec/2015...Dec/2013" so aparece em
+#   technical_report.md; DATA_CARD.md e DIMENSIONAL_MODEL.md nunca a citam, so herdam
+#   a CONSEQUENCIA numerica da regra. Fato trocado para checar essa consequencia
+#   (a populacao final, 673.314), que os tres de fato compartilham.
+facts:
+  - name: feature_count
+    source: src/data.py            # FEATURE_SET / CATEGORICAL_COLS
+    type: single
+    severity: high
+    consumers: [README.md, docs/MODEL_CARD.md, docs/technical_report.md]
+    topic: '\d+ named features'
+    accept: ['78 named features']
+    wrong: ['79 named features']
+
+  - name: profit_headline
+    source: docs/FACTS.md
+    type: single
+    severity: high
+    consumers: [README.md, docs/MODEL_CARD.md, docs/SETUP.md, docs/technical_report.md, CHANGELOG.md]
+    topic: '242,2\d{2},\d{3}'
+    accept: ['242,230,710\.89']
+
+  - name: maturity_cutoff
+    source: docs/scope.md
+    type: single
+    severity: high
+    consumers: [docs/DATA_CARD.md, docs/technical_report.md, docs/DIMENSIONAL_MODEL.md]
+    topic: '673,3\d{2}'
+    accept: ['673,314']
+    note: "checa a POPULACAO FINAL (consequencia numerica do corte), nao a frase Dec/2015...Dec/2013 -- ver historico de ajustes acima"
+
+  - name: ci_pipeline
+    source: .github/workflows/docker.yml
+    type: single
+    severity: high
+    consumers: [README.md, docs/MODEL_CARD.md, docs/SETUP.md]
+    topic: 'smoke-test'
+    accept: ['unit-tests', 'unit tests', 'pytest tests', '146 tests', 'test suite', 'only if that passes']
+    note: "aceita formas equivalentes -- o fato e 'testes rodam antes do build', nao a palavra exata 'unit-tests'"
+
+  - name: calibration_metrics
+    source: docs/MODEL_CARD.md
+    type: multi          # escopos legitimos diferentes (full vs metade) — NAO checar valor unico
+    severity: low
+    note: "bias/Brier tem 2 escopos legitimos (full-test vs metade do teste, experimento de calibracao). Nao e divergencia."
+
+  - name: thin_model_auc
+    source: docs/reject_inference_roadmap.md
+    type: single
+    severity: low        # tese de RI e secao honesta, nao manchete
+    consumers: [README.md]
+    topic: '0\.56\d{2}'
+    accept: ['0\.5620']
+
+  - name: ri_79_features_historic
+    source: src/data.py
+    type: single
+    severity: low         # pendencia BAIXA conhecida, nota historica -- nao bloqueia
+    consumers: [docs/reject_inference_roadmap.md]
+    topic: 'XGB [0-9]+ features|[0-9]+ features vs thin'
+    accept: ['78 features']
+    wrong: ['79 features']
+    note: "fato separado do feature_count principal (severity high) porque o mesmo nome de fato nao pode ter duas severidades para consumidores diferentes"
