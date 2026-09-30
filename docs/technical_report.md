@@ -263,7 +263,10 @@ with room to spare; a delta inside it is not thereby shown to be noise.
 This section is the regulatory-relevant layer of the evaluation: an aggregate AUC or
 profit figure can hide systematic weakness in specific, protected-adjacent segments.
 
-**AUC declines monotonically with risk grade and rises monotonically with income**:
+**AUC is highest in grade A and lower in every riskier grade; it rises monotonically with
+income.** The grade pattern is not a steady slope: a large drop from A to B, a gentler
+decline through E, the lowest grade, and no further decline in F and G, whose estimates
+rest on few loans:
 
 | Grade | AUC-ROC |
 |---|---|
@@ -272,7 +275,8 @@ profit figure can hide systematic weakness in specific, protected-adjacent segme
 | C | 0.597 |
 | D | 0.589 |
 | E | 0.582 |
-| F–G (small N) | 0.585–0.588 |
+| F (1,358 loans) | 0.588 |
+| G (244 loans) | 0.585 |
 
 | Income quartile | AUC-ROC |
 |---|---|
@@ -281,8 +285,8 @@ profit figure can hide systematic weakness in specific, protected-adjacent segme
 | Q3 | 0.688 |
 | Q4 (highest income) | 0.697 |
 
-**The model is least reliable exactly in the highest-risk, lowest-income segment.** That
-is precisely where a lender would most need precision, and the reverse of what the
+**The model is less reliable in the riskier grades and the lowest-income quartile.** That
+is where a lender would most need precision, and the reverse of what the
 headline AUC (0.6846) alone would suggest.
 
 **Calibration.** The model systematically **underestimates** default: observed default
@@ -372,7 +376,7 @@ cheap route buys almost nothing, and the cause explains both.
 - **Selection bias.** The model estimates P(default | approved), never having observed a
   rejected application. It cannot be used to score the rejected-applicant population, and
   says nothing about how it would perform as a first-pass underwriting filter.
-- **Subgroup reliability.** Weakest in the highest-risk, lowest-income segment (§8),
+- **Subgroup reliability.** Weaker in the riskier grades and the lowest-income quartile (§8),
   compounding the 2.67x cost asymmetry (§2) exactly where it is largest.
 - **Term non-transferability.** Not valid for 60-month loans without a dedicated
   scorecard (§9).

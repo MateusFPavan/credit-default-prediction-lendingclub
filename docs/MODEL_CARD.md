@@ -68,9 +68,9 @@ and evaluated to maximize **expected portfolio profit** rather than accuracy or 
   *modeling*, not engineering: the model is now served and monitored, but the selection
   bias above still means its score must not drive a real lending decision. Deployment
   proves the artifact is servable and observable — not that it is fit to underwrite.
-- **Degrades in the highest-risk segment.** AUC falls from grade A (0.648) to G (0.585)
-  and is lowest for the lowest-income quartile — least reliable where a lender most needs
-  it (§8).
+- **Degrades outside the safest grade.** AUC is 0.648 in grade A and between 0.582 and
+  0.605 in grades B through G, and is lowest for the lowest-income quartile — less reliable
+  where a lender most needs it (§8).
 - **Not transferable to 60-month loans.** Applied without refitting, performance degrades
   severely (AUC 0.6846 → 0.6433; the logistic baseline's profit gain turns negative). The
   two terms are structurally distinct risk pools; the API enforces `term=36`.
@@ -147,9 +147,10 @@ profit, not AUC, is the reported decision metric.
 **Error decomposition** (threshold 0.31): 10,644 loans rejected, avoided loss $32.15M,
 forgone interest $23.12M, net $9.03M. False-negative cost is ~11.9x false-positive cost.
 
-**Disaggregated by subgroup** (test): AUC declines monotonically by grade, 0.648 (A) to
-0.585 (G), and is lowest for income quartile Q1 (0.648) vs Q4 (0.697) — least reliable in
-the highest-risk, lowest-income segment.
+**Disaggregated by subgroup** (test): AUC is highest in grade A (0.648), drops to 0.605 in B
+and declines more gently to 0.582 in E, the lowest; F (0.588) and G (0.585) do not decline
+further, on 1,358 and 244 loans. It rises with income, from Q1 (0.648) to Q4 (0.697). The
+model is less reliable in the riskier grades and the lowest-income quartile.
 
 **Calibration** (expanded 2026-08-31 with the cause, which was previously unknown): the
 model systematically **underestimates** default — observed exceeds predicted in **all ten
@@ -203,7 +204,7 @@ always 0 outside the training population).
 - **Selection bias**: estimates P(default | approved), never having seen rejected
   applicants; valid only as a second layer over an already-approved book, not a first-pass
   filter (`docs/DATA_CARD.md`).
-- **Subgroup reliability**: weakest where risk is highest (§8), and the cost asymmetry is
+- **Subgroup reliability**: weaker where risk is higher (§8), and the cost asymmetry is
   large — a bad loan costs 2.67x what a good loan returns at the median ($5,398.84 vs
   $2,023.62) — so subgroup weakness concentrates where errors are most expensive.
 - **Subgroup mitigation, considered and not implemented (2026-08-25)**: two concrete

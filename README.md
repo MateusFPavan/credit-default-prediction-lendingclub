@@ -29,8 +29,8 @@ Rejecting just the riskiest 10% of applicants avoids ~21% of all defaults, twice
 effective as a random cut of the same size. Trained and evaluated on ~673K matured
 36-month Lending Club loans (2007-2015, 14.8% default rate).
 
-**Honest caveat, stated up front, not buried**: the model is least reliable in the
-highest-risk, lowest-income segment. It was trained only on approved loans, so it cannot
+**Honest caveat, stated up front, not buried**: the model is less reliable in the riskier
+grades and the lowest-income quartile. It was trained only on approved loans, so it cannot
 score rejected applicants (a selection-bias limit). It is also not built for live lending
 decisions as-is.
 
@@ -130,11 +130,11 @@ Serving, monitoring, and the retraining trigger are documented in
 The model is not uniformly reliable, and that is reported directly rather than
 smoothed over in an aggregate metric:
 
-![Model discriminates worst in the highest-risk segments](reports/figures/subgroup_auc.png)
+![Model discriminates less well in the riskier segments](reports/figures/subgroup_auc.png)
 
-- **Weakest exactly where risk is highest**: AUC falls from 0.648 (grade A) to 0.585
-  (grade G), and from 0.697 (highest income quartile) to 0.648 (lowest). That is the
-  reverse of where a lender would most want precision.
+- **Weaker where risk is higher**: AUC is 0.648 in grade A and between 0.582 and 0.605 in
+  grades B through G, and falls from 0.697 (highest income quartile) to 0.648 (lowest). That
+  is the reverse of where a lender would most want precision.
 - **Selection bias**: the model estimates P(default | approved), having never seen a
   rejected application. It cannot say how it would perform as a first-pass underwriting
   filter, only as a second layer over an already-approved loan book.

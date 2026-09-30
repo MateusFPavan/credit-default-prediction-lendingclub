@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.1] - 2026-09-30
+
+### Fixed
+
+- **"AUC declines monotonically by grade" was contradicted by the table printed next to it.**
+  `docs/technical_report.md` §8 and `docs/MODEL_CARD.md` §8 said so, but the published
+  figures (`reports/facts/facts_subgroups.csv`) put grade E lowest (0.582), with F (0.588)
+  and G (0.585) slightly above it on 1,358 and 244 loans. The actual pattern is a large drop
+  from A to B (0.648 to 0.605), a gentler decline through E, and no further decline in F and
+  G. The README, model card and technical report now describe that pattern. No number
+  changed. The income gradient (Q1 0.648 to Q4 0.697) is monotonic and was stated
+  correctly.
+
+### Removed
+
+- `CLAUDE.md` is no longer versioned. It holds working rules for the coding assistant, the
+  same kind of content that `.gitignore` already keeps out of this repository; the file
+  stays local.
+
 ## [3.3.0] - 2026-09-30
 
 ### Added
