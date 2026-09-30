@@ -4,6 +4,44 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-09-30
+
+### Added
+
+- **Cross-document consistency checker, with a CI gate.** `scripts/check_consistency.py`
+  reads `docs/_consistency_map.yaml` — a map of canonical source to consumers for each
+  shared fact — and fails the build when a consumer states a different value. It is wired
+  into `.github/workflows/docker.yml` as the `Consistency check (docs)` step of the
+  `unit-tests` job, so a divergence blocks the build rather than waiting to be noticed.
+  **It landed on 2026-09-17 and went undocumented until now:** the tool built to catch
+  documentation drift shipped without a changelog entry of its own.
+
+### Fixed
+
+- **`docs/DIMENSIONAL_MODEL.md` stated that the star schema is consumed by
+  `dashboard/credit_risk_dashboard.pbix`. It is not.** The `.pbix` has not been modified
+  since 2026-08-05 — a month before `src/build_marts.py` existed — and still holds the
+  nine flat tables that the same document describes as the arrangement the star schema
+  replaces. Rewiring a Power BI file is manual work inside Power BI, and it was never
+  done. The document now says what is true: the model is published as versioned tables in
+  `data/marts/`, and the dashboard in this repository does not read them yet. The sentence
+  was well-formed, plausible and consistent with the rest of the document, which is
+  exactly why it survived a month of reading.
+- **`docs/MODEL_CARD.md` was labelled `3.1.0` while carrying 3.2.0's content and 3.2.0's
+  release date.** The card's header read `3.1.0 — 2026-09-16`, and 2026-09-16 is 3.2.0's
+  date; §12 dated the same 3.1.0 to 2026-08-31. The card is now `3.2.0`, and §12 separates
+  the two releases: `application_type` removal stays 3.1.0 (2026-08-31), and the
+  unseen-category closure plus the documented calibration cause become 3.2.0 (2026-09-16).
+  The card stays at 3.2.0 under this 3.3.0 release on purpose: it versions the **model**,
+  and 3.3.0 changes no model behaviour. A card that tracked the repository's version
+  would have to be reissued for a tooling change, which is how labels drift loose from
+  content in the first place.
+- **`.github/workflows/docker.yml`: the pytest step was named after one file while
+  running the whole suite.** The label said `tests/test_api.py — API contract suite,
+  task 4.3`; the command is `pytest tests/ -v`, which collects 146 tests across every
+  test file. A green CI log therefore described a narrower check than the one that had
+  actually passed. The label now matches the command.
+
 ## [3.2.0] - 2026-09-16
 
 ### Added

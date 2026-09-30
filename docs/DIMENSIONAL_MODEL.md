@@ -1,25 +1,33 @@
 # Dimensional Model
 
 A Kimball-style star schema over the cleaned analytical population, built by
-[`src/build_marts.py`](../src/build_marts.py) and consumed by
-[`dashboard/credit_risk_dashboard.pbix`](../dashboard/credit_risk_dashboard.pbix).
+[`src/build_marts.py`](../src/build_marts.py) and published as versioned tables in
+[`data/marts/`](../data/marts/).
+
+> **The Power BI file has not been rebuilt against this model.**
+> [`dashboard/credit_risk_dashboard.pbix`](../dashboard/credit_risk_dashboard.pbix) is
+> unchanged since 2026-08-05 — a month before `src/build_marts.py` existed — and still
+> holds the nine flat tables described in the next section, which is the arrangement this
+> model was built to replace. Rewiring it is manual work inside Power BI and has not been
+> done. The star schema is consumable from `data/marts/` by anything that reads CSV or
+> Parquet; the dashboard shipped in this repository is not yet one of those things.
 
 ## Why this exists
 
-The dashboard originally shipped **nine flat tables** — `facts_metrics`,
+The dashboard ships **nine flat tables** — `facts_metrics`,
 `facts_confusion`, `facts_confusion_long`, `facts_financial`, `facts_subgroups`,
 `facts_waterfall`, `psi_quarterly`, `psi_splits_clean`, `psi_splits_raw` — with **no
-relationships between them**. Despite the `facts_` prefix, none was a fact table in the
-dimensional sense: a fact table carries foreign keys into dimensions, and there were no
+relationships between them**. Despite the `facts_` prefix, none is a fact table in the
+dimensional sense: a fact table carries foreign keys into dimensions, and there are no
 dimensions to key into.
 
 Those tables are exports of numbers that were already computed. They answer the questions
 someone decided in advance, and they cannot answer anything else. *"What is the default
-rate for grade D loans issued in 2013?"* was unanswerable in the tool, because the model
-held neither grades nor vintages — only finished rows.
+rate for grade D loans issued in 2013?"* is unanswerable in that model, because it holds
+neither grades nor vintages — only finished rows.
 
-This model publishes the grain instead, so the questions get asked in the tool rather than
-in Python.
+This model publishes the grain instead, so that those questions can be asked against
+tables rather than in Python — once a tool is pointed at it.
 
 ## Grain
 

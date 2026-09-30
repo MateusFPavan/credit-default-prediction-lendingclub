@@ -1,6 +1,6 @@
 ---
 model_name: credit-default-prediction-lendingclub / XGB_walkforward
-model_version: 3.1.0
+model_version: 3.2.0
 version_date: 2026-09-16
 task: binary-classification (credit default prediction)
 library: scikit-learn, xgboost
@@ -11,7 +11,7 @@ data_license: CC0-1.0
 
 # Model Card: XGB_walkforward (Lending Club Credit Default)
 
-**Model version: 3.1.0 — 2026-09-16 (label aligned to content already in this card).**
+**Model version: 3.2.0 — 2026-09-16.**
 Version history in §12.
 
 Related docs: data card at [`docs/DATA_CARD.md`](DATA_CARD.md); setup and reproduction at
@@ -326,17 +326,23 @@ reproduction entry point (`docs/SETUP.md`).
 
 ## 12. Version history
 
-- **3.1.0 — 2026-08-31** — **`application_type` removed; unseen-category handling closed
-  out.** MINOR bump: backward-compatible, nothing a prior contract relied on breaks.
-  `application_type` was constant in the training split (zero trained one-hot columns) and
-  is now out of `FEATURE_SET`, `CATEGORICAL_COLS`, and the request schema (§9); an ablation
-  retraining without it reproduced $242,230,710.89 to the cent, so removing it cost
-  nothing. The gap this card used to name — that a category unseen in training was
-  indistinguishable from the base category, silently — was closed on 2026-09-02: `src/scoring.py`
-  now checks incoming categories against a frozen training vocabulary
-  (`src/_category_stats.json`) and warns on a genuine mismatch instead of staying silent
-  (§9). This label was applied to the card retroactively; the content above already
-  reflected both changes.
+- **3.2.0 — 2026-09-16** — **Unseen-category handling closed out; the calibration drift
+  gained a documented cause.** MINOR bump. The gap this card used to name — that a category
+  unseen in training was indistinguishable from the base category, silently — was closed on
+  2026-09-02: `src/scoring.py` now checks incoming categories against a frozen training
+  vocabulary (`src/_category_stats.json`) and warns on a genuine mismatch instead of
+  staying silent (§9). §8-9 were expanded with the *cause* of the miscalibration — base-rate
+  shift between the training period and the test period — rather than only its measured
+  direction, and with the two recalibration routes that were tested and rejected.
+  **Label corrected on 2026-09-30.** This content was released as 3.2.0 in `CHANGELOG.md`
+  on 2026-09-16, and the card carried the label `3.1.0` stamped with that same
+  2026-09-16 date. Numbering from one release and dating from the next is worse than
+  either error alone, because each half makes the other look deliberate.
+- **3.1.0 — 2026-08-31** — **`application_type` removed.** MINOR bump:
+  backward-compatible, nothing a prior contract relied on breaks. `application_type` was
+  constant in the training split (zero trained one-hot columns) and is now out of
+  `FEATURE_SET`, `CATEGORICAL_COLS`, and the request schema (§9); an ablation retraining
+  without it reproduced $242,230,710.89 to the cent, so removing it cost nothing.
 - **3.0.0 — 2026-08-31** — **Serving correctness.** Five defects were found and fixed in
   the inference path; the API now returns different probabilities than it did for the same
   input, and the previous outputs were wrong. MAJOR bump by this card's own stated rule:
