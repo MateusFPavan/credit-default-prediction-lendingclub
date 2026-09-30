@@ -1,0 +1,65 @@
+﻿
+==============================================================================
+GATE 0 - does the frozen configuration still reproduce the published figure?
+==============================================================================
+  base: 90 columns  thr=0.31  AUC=0.684563  profit=242230710.89
+  against published 242230710.89: difference = -0.00
+
+==============================================================================
+1. TWIN TEST - two ablations that agreed to the last digit
+==============================================================================
+  without num_tl_120dpd_2m_missing     89 cols  thr=0.31  AUC=0.6843411605857717  profit=242320793.86
+  without sparse_bureau_missing        89 cols  thr=0.31  AUC=0.6843411605857717  profit=242320793.86
+  predictions identical bitwise : True
+  max|p_a - p_b|                : 0.000e+00
+  tree dumps identical          : True
+    splits on sparse_bureau_missing        in that fit = 0
+    splits on num_tl_120dpd_2m_missing     in that fit = 0
+    splits on num_tl_120dpd_2m_missing     in the base  = 0
+    splits on sparse_bureau_missing        in the base  = 3.0
+  Reading: the two 89-column matrices differ in ONE column, at the same index,
+  and that column is never split on in either fit -- so the two fits are the
+  same ensemble. The shared delta measures the re-draw, not either feature.
+
+==============================================================================
+2. NULL BY SEED - same rows, same columns, only the draw changes
+==============================================================================
+  seed 42     thr=0.31  AUC=0.684563  profit=   242230710.89
+  seed 0      thr=0.33  AUC=0.684289  profit=   240997049.67
+  seed 1      thr=0.33  AUC=0.684398  profit=   241063623.09
+  seed 7      thr=0.32  AUC=0.684558  profit=   242286821.58
+  seed 13     thr=0.31  AUC=0.683779  profit=   242584225.63
+  seed 99     thr=0.33  AUC=0.683893  profit=   241431566.63
+  seed 123    thr=0.34  AUC=0.684338  profit=   240486601.17
+  seed 2024   thr=0.34  AUC=0.685067  profit=   241062373.55
+  mean / sd (n-1)        :    241517871.53 / 755227.28
+  min / max / range      :    240486601.17 / 242584225.63 / 2097624.46
+  seed 42 rank           : 3 of 8 (highest first), +0.94 sd from the mean
+  predicted regression to the mean for any fresh draw: -712839.36
+  NOTE: changing the seed redraws columns AND rows (subsample=0.8), while
+  dropping a column redraws columns only. This sd is an UPPER bound on the
+  re-draw noise: a delta above it is signal with room to spare; a delta below
+  it is NOT thereby proven to be noise.
+
+==============================================================================
+3. RE-READING THE LOFO RANKING AGAINST THE NULL
+==============================================================================
+  n                      : 78
+  median delta           :      -906388.27   <- predicted above as -712839.36
+  mean delta             :      -882996.23
+  sd of the deltas       :       883607.04
+
+  centred on ZERO   , |delta| > 2 sd : 20 of 78  (negative: 20)
+  centred on MEDIAN , |delta - median| > 2 sd : 6 of 78
+
+  what survives, recentred on the median:
+      mo_sin_rcnt_rev_tl_op                        -2966504.70   -2.73 sd
+      acc_open_past_24mths                         -2830545.55   -2.55 sd
+      mths_since_recent_revol_delinq               -2625894.06   -2.28 sd
+      tot_hi_cred_lim                                790303.98   +2.25 sd
+      bc_util                                        990119.92   +2.51 sd
+      avg_cur_bal                                   1159254.09   +2.74 sd
+
+  A ranking in which almost everything falls on one side is measuring the
+  shift, not the effect. Centred on zero the survivors are all negative;
+  centred on the median, features whose REMOVAL raises profit appear too.
