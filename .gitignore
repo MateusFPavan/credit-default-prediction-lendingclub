@@ -23,3 +23,6 @@ data/marts/*_sample.csv
 # portfolio, stays local. A public repo is judged by result/code/README/Model Card, not by
 # how much of the process was assistant-driven -- keep the two separate on purpose.
 _processo_interno/
+# CLAUDE.md holds the same kind of content (working rules for the coding assistant), so it
+# stays local as well. Tracked from 2026-09-14 to 2026-09-30; those versions remain in history.
+CLAUDE.md
