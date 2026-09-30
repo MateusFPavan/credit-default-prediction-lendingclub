@@ -214,6 +214,50 @@ Rejecting the riskiest 10% of applicants avoids **~21% of all defaults**, roughl
 the yield of a random 10% cut. This is the plainest translation of the model into a
 policy statement for a non-technical reader.
 
+### 7.6 Fit-to-fit noise: what survives it, and what a feature ablation measures
+
+The frozen configuration draws at random twice per tree: `colsample_bytree=0.6` grows
+each of the 600 trees on 60% of the columns, and `subsample=0.8` on 80% of the rows. The
+published figure is one draw of that randomness (`random_state=42`). Refitting the same
+configuration eight times, with the same rows and columns and only the seed changed, gives
+a **standard deviation of $0.76M and a range of $2.10M** in test profit. The published
+seed ranks third of eight, 0.94 SD above the mean. It remains the published figure: no
+seed was chosen after seeing results, and the sweep measures uncertainty around it rather
+than selecting anything (`scripts/ablation_noise_floor.py`; output in
+`reports/ablation_noise_floor.txt`).
+
+**The headline survives.** The logistic baseline has no random draw, so the comparison in
+§7.4 holds against the whole distribution: XGB beats it by $5.58M at the eight-seed mean,
+**7.4 SD** of fit-to-fit noise, and by $4.55M even at the worst seed. The §7.4 conclusion
+does not depend on a favourable draw.
+
+**Single-feature ablations do not survive it, and the reason is mechanical.** The column
+draw depends on how many columns there are, so removing *any* column re-randomises all 600
+trees. A leave-one-feature-out delta is therefore the feature's effect plus a fresh draw.
+Two measured consequences:
+
+- Removing a column the model never splits on still moved profit by $90K. Two such
+  ablations produced bit-identical ensembles, down to the tree dumps, because the two
+  89-column matrices differed only in a column that neither fit used.
+- Because the baseline is one draw sitting above the mean, a fresh draw is expected to
+  land lower. Regression to the mean alone predicts about **-$0.71M** per ablation; the
+  observed median of the 78 ablation deltas is **-$0.91M**. Centred on zero, 20 of the 78
+  deltas exceed 2 SD and all 20 are negative, which is the signature of a ranking measuring
+  the shift rather than the effects. Centred on their median, 6 of 78 exceed 2 SD, and three
+  of those are positive: removing `avg_cur_bal`, `bc_util` or `tot_hi_cred_lim` raised
+  profit by more than the noise explains.
+
+The clearest illustration is a contrast already in this repository. Removing
+`application_type` changed nothing: it never contributed a column, the count stayed at 90,
+nothing was re-drawn, and profit reproduced to the cent. Removing `emp_length_anos` took
+the count to 89 and carries the full re-draw term; its $1.74M delta sits 1.1 SD from the
+typical ablation, inside the noise. The feature stays in the model, which is the low-risk
+side of the decision, but that ablation does not establish the size of its contribution.
+
+The seed sweep redraws rows as well as columns, while removing a column redraws columns
+only, so $0.76M is an **upper bound** on the re-draw noise. A delta beyond it is signal
+with room to spare; a delta inside it is not thereby shown to be noise.
+
 ## 8. Subgroup Performance and Calibration
 
 This section is the regulatory-relevant layer of the evaluation: an aggregate AUC or
@@ -341,6 +385,10 @@ cheap route buys almost nothing, and the cause explains both.
   (`docs/MODEL_CARD.md` §10). This proves the artifact is servable and observable; it does
   not change the selection-bias limitation above, and the model must still not drive a
   real credit decision.
+- **Feature-level attribution by ablation is not established.** Removing a single
+  feature re-randomises the ensemble, so most single-feature ablation deltas fall inside
+  the fit-to-fit noise (§7.6). Model-level comparisons are unaffected; statements of the
+  form "feature X is worth $Y" are not supported by the ablations run here.
 
 ## 12. Reproducibility
 
@@ -350,6 +398,9 @@ verified test result. It asserts the $242,230,710.89 test profit reproduces exac
 walk-forward tuning and bootstrap experiments referenced in §6.2, §7.2, and §10 are not
 re-run by that entry point (they take hours). They are preserved in the numbered working
 notebooks (`notebooks/06` through `11`) and summarized in `docs/FACTS.md`.
+`python scripts/ablation_noise_floor.py` reproduces §7.6 in about ten minutes; it checks
+the baseline against the published figure before measuring anything, and stops if it
+does not match.
 
 ## 13. Conclusion and Recommendations
 

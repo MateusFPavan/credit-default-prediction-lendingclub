@@ -15,9 +15,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `unit-tests` job, so a divergence blocks the build rather than waiting to be noticed.
   **It landed on 2026-09-17 and went undocumented until now:** the tool built to catch
   documentation drift shipped without a changelog entry of its own.
+- **Fit-to-fit noise floor, and the feature ablation re-read against it.**
+  `scripts/ablation_noise_floor.py` refits the frozen configuration with eight seeds, same
+  rows and same columns, and finds a standard deviation of $0.76M in test profit. It then
+  re-reads the 78-feature leave-one-out ablation against that floor; the ablation results,
+  which previously lived outside the repository, are now versioned as
+  `reports/lofo_deltas.csv`. Output in `reports/ablation_noise_floor.txt`, method and
+  findings in `docs/technical_report.md` §7.6. The published figure is unchanged and still
+  comes from `random_state=42`: the sweep measures uncertainty around it and selects
+  nothing.
 
 ### Fixed
 
+- **The 3.1.0 note overstated what the `emp_length_anos` ablation shows.** It said that
+  removing the feature "costs $1,735,339" and that "selecting features by AUC would have
+  discarded $1.7M". With `colsample_bytree=0.6`, dropping any column re-randomises the
+  whole ensemble, and the published seed sits above the mean of its own distribution, so a
+  single-column removal is expected to cost about $0.71M from regression to the mean alone;
+  the median of all 78 ablation deltas is $0.91M. Measured against that, `emp_length_anos`
+  is 1.1 standard deviations from a typical ablation, inside the fit-to-fit noise. The
+  feature stays; the magnitude is withdrawn, and with it the claim that this was a second
+  instance of the AUC-profit divergence. The first instance, XGB against the logistic
+  baseline (`docs/technical_report.md` §7.4), survives the same noise floor by 7.4
+  standard deviations.
+  The neighbouring `application_type` result is unaffected and is the clean case of the
+  same mechanism: that feature never contributed a column, the count stayed at 90, nothing
+  was re-drawn, and profit reproduced to the cent. The 3.1.0 text is left as released, with
+  a pointer to this entry.
 - **`docs/DIMENSIONAL_MODEL.md` stated that the star schema is consumed by
   `dashboard/credit_risk_dashboard.pbix`. It is not.** The `.pbix` has not been modified
   since 2026-08-05 — a month before `src/build_marts.py` existed — and still holds the
@@ -108,6 +132,9 @@ wrong**: removing it costs **$1,735,339** (-0.72%), with the bootstrap CI entire
 negative. It stays. Notably its AUC cost is only 0.0007 (0.684563 -> 0.683846) — a second,
 independent instance of this project's central finding that AUC and the business metric
 diverge. Selecting features by AUC would have discarded $1.7M.
+
+*Superseded in [3.3.0]: the size of the `emp_length_anos` effect above is not established
+by this ablation. See the note there. The `application_type` result is unaffected.*
 
 ## [3.0.0] - 2026-08-31
 
