@@ -21,6 +21,12 @@
 #   um topic amplo demais ("CI") que casava dentro de "decision", "specific" etc.
 #   Reescrito para o modelo topic+accept+wrong acima, com cada padrao testado contra
 #   o texto real de cada consumidor antes de fixar no mapa.
+# - 2026-09-30: ri_79_features_historic RESOLVIDO. O "79" descrevia o tamanho da
+#   lista FEATURE_SET quando o experimento rodou; o application_type saiu dela
+#   depois sem nunca ter contribuido coluna, entao o artefato que a Fase 2a
+#   carregou (models/xgb_final.joblib, 90 colunas) e o MESMO de hoje. "78" e
+#   verdade sobre o modelo atual e sobre o experimento. Corrigido no roadmap e
+#   nos notebooks 18 e 20; o fato fica como guarda contra regressao.
 # - maturity_cutoff: a frase literal "Dec/2015...Dec/2013" so aparece em
 #   technical_report.md; DATA_CARD.md e DIMENSIONAL_MODEL.md nunca a citam, so herdam
 #   a CONSEQUENCIA numerica da regra. Fato trocado para checar essa consequencia
@@ -83,4 +89,4 @@ facts:
     topic: 'XGB [0-9]+ features|[0-9]+ features vs thin'
     accept: ['78 features']
     wrong: ['79 features']
-    note: "fato separado do feature_count principal (severity high) porque o mesmo nome de fato nao pode ter duas severidades para consumidores diferentes"
+    note: "resolvido 2026-09-30 (ver historico de ajustes no topo). Mantido como guarda: se o 79 voltar, e regressao. Fato separado do feature_count porque o mesmo nome de fato nao pode ter duas severidades"

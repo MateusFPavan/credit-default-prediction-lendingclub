@@ -673,7 +673,7 @@ pipeline de scoring estão corretos. v2.0.0 publicado permanece intocado; a Fase
 esta métrica para todos os seus modelos (baseline recalculado internamente).
 
 **Comparação entre modelos** (Etapa 3, corrigida — Bloco 7b): comparar por threshold
-numérico comum é INVÁLIDO entre escalas diferentes (XGB 79 features vs thin model 3
+numérico comum é INVÁLIDO entre escalas diferentes (XGB 78 features vs thin model 3
 features) — confirmado empiricamente na primeira tentativa (100% dos recusados
 "aceitos" a 0.26, implausível). Correção: comparar à MESMA TAXA DE ACEITAÇÃO (cada
 modelo escolhe quais X% aceitar pela própria escala) — comparação justa, isola qualidade

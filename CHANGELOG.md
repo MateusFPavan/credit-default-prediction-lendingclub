@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discarded $1.7M". With `colsample_bytree=0.6`, dropping any column re-randomises the
   whole ensemble, and the published seed sits above the mean of its own distribution, so a
   single-column removal is expected to cost about $0.71M from regression to the mean alone;
-  the median of all 78 ablation deltas is $0.91M. Measured against that, `emp_length_anos`
+  the median cost across all 78 ablations is $0.91M. Measured against that, `emp_length_anos`
   is 1.1 standard deviations from a typical ablation, inside the fit-to-fit noise. The
   feature stays; the magnitude is withdrawn, and with it the claim that this was a second
   instance of the AUC-profit divergence. The first instance, XGB against the logistic
@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same mechanism: that feature never contributed a column, the count stayed at 90, nothing
   was re-drawn, and profit reproduced to the cent. The 3.1.0 text is left as released, with
   a pointer to this entry.
+- **"79 features" corrected to 78 in `docs/reject_inference_roadmap.md` and in notebooks
+  `18` and `20`.** The number described the length of `FEATURE_SET` when the
+  reject-inference evaluation ran, before `application_type` was removed in 3.1.0. That
+  feature never contributed a column, so the artifact the evaluation loaded
+  (`models/xgb_final.joblib`, 90 trained columns) is the same file as today's: 78 is true of
+  the current model and of the experiment. This was the consistency checker's only standing
+  warning; with it cleared, the checker's low-severity channel is empty, which is the only
+  state in which a new warning there gets noticed.
 - **`docs/DIMENSIONAL_MODEL.md` stated that the star schema is consumed by
   `dashboard/credit_risk_dashboard.pbix`. It is not.** The `.pbix` has not been modified
   since 2026-08-05 — a month before `src/build_marts.py` existed — and still holds the

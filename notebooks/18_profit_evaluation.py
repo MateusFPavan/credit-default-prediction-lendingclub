@@ -52,7 +52,7 @@
 #     print/report.
 #
 # Bloco 7b (CORRIGE a Etapa 3 original): a primeira versao aplicava o threshold 0.26 do
-#   XGB (79 features, aprovados) direto na escala de PD do thin model (3 features,
+#   XGB (78 features, aprovados) direto na escala de PD do thin model (3 features,
 #   recusados) -- invalido, escalas diferentes. Confirmado empiricamente: a 0.26,
 #   100% dos 27,5M recusados eram "aceitos", implausivel dado que a populacao recusada e'
 #   objetivamente pior em dti/emp_length (Blocos 1c/4). Corrigido com duas solucoes da
@@ -219,7 +219,7 @@ def evaluate_rejected_scenario():
 
 # ============================================================================
 # ETAPA 3 (Bloco 7b, CORRIGE a Etapa 3 original): comparar threshold 0.26 do XGB
-# (79 features) direto na escala do thin model (3 features) foi invalido -- escalas
+# (78 features) direto na escala do thin model (3 features) foi invalido -- escalas
 # diferentes (confirmado empiricamente: 100% dos recusados "aceitos" a 0.26, o que e'
 # implausivel dado que sabemos que a populacao recusada e' objetivamente pior em dti e
 # emp_length). Duas solucoes da literatura (KNIME/Verbraken 2014; comparacao a taxa de
@@ -302,7 +302,7 @@ def run_etapa3(etapa2_out):
             print(f"{name:>28}{lgd:>6}{t:>20.3f}{p:>20,.0f}")
     print("  [referencia] threshold otimo do XGB nos aprovados (Etapa 1, LGD=0.5) = 0.260 -- "
           "os valores acima devem ficar bem abaixo disso, coerente com uma escala mais "
-          "comprimida (thin model, 3 features fracas vs 79 do XGB).")
+          "comprimida (thin model, 3 features fracas vs 78 do XGB).")
 
     print("\n=== ETAPA 3b (Solucao 2, PRINCIPAL): lucro a TAXA DE ACEITACAO FIXA ===")
     names = list(strategies.keys())

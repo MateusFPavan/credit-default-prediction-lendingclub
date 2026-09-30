@@ -80,7 +80,7 @@ def bayesian_expected_default_rate(pd_appr, y_appr, pd_rej, prior_rej_bad_rate,
 
     IMPORTANTE (integracao): pd_appr e pd_rej precisam estar na MESMA escala de
     probabilidade pra fazer sentido ordena-los juntos (np.argsort sobre a concatenacao).
-    So o thin model pontua as duas populacoes na mesma escala (o XGB de 79 features nao
+    So o thin model pontua as duas populacoes na mesma escala (o XGB de 78 features nao
     consegue pontuar recusados -- seria a mesma armadilha de escala que o Bloco 7
     encontrou e corrigiu). Por isso pd_appr aqui vem do THIN MODEL, nao do XGB.
 
