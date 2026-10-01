@@ -1,0 +1,85 @@
+
+==============================================================================
+GATE 0 - do the published artifacts reproduce the published figures?
+==============================================================================
+  XGB A   : 0.6477  published 0.6477  ok
+  XGB B   : 0.6048  published 0.6048  ok
+  XGB C   : 0.5965  published 0.5965  ok
+  XGB D   : 0.5889  published 0.5889  ok
+  XGB E   : 0.5818  published 0.5818  ok
+  XGB F   : 0.5878  published 0.5878  ok
+  XGB G   : 0.5854  published 0.5854  ok
+  XGB Q1  : 0.6480  published 0.6480  ok
+  XGB Q2  : 0.6722  published 0.6722  ok
+  XGB Q3  : 0.6881  published 0.6881  ok
+  XGB Q4  : 0.6974  published 0.6974  ok
+  baseline overall AUC: 0.6847  published 0.6847  ok
+
+==============================================================================
+1. GRADE: published XGB against the logistic baseline (bootstrap 500 x, paired)
+==============================================================================
+  seg        n  default | XGB [95% CI]          | baseline [95% CI]     | XGB - baseline [95% CI]  | Bonferroni
+  A      70100    5.42% | 0.6477 [0.639, 0.657] | 0.6411 [0.633, 0.650] | +0.0065 [+0.000, +0.013] | [-0.002, +0.015]
+  B      91645   11.89% | 0.6048 [0.599, 0.610] | 0.5992 [0.594, 0.605] | +0.0057 [+0.001, +0.010] | [-0.000, +0.011]
+  C      77348   19.44% | 0.5965 [0.592, 0.602] | 0.5854 [0.580, 0.591] | +0.0111 [+0.007, +0.015] | [+0.006, +0.016]
+  D      32668   26.21% | 0.5889 [0.582, 0.595] | 0.5735 [0.567, 0.580] | +0.0154 [+0.009, +0.021] | [+0.007, +0.024]
+  E       9424   32.84% | 0.5818 [0.570, 0.595] | 0.5675 [0.555, 0.579] | +0.0143 [+0.004, +0.025] | [-0.001, +0.029]
+  F       1358   42.42% | 0.5878 [0.558, 0.616] | 0.5679 [0.537, 0.597] | +0.0198 [-0.007, +0.047] | [-0.017, +0.057]
+  G        244   46.31% | 0.5854 [0.511, 0.660] | 0.5828 [0.505, 0.660] | +0.0026 [-0.062, +0.078] | [-0.096, +0.101]
+  Bonferroni column: 7 comparisons in this family, normal approximation from the
+  bootstrap standard error. A segment where XGB beats the baseline should clear zero there.
+
+==============================================================================
+1. INCOME: published XGB against the logistic baseline (bootstrap 500 x, paired)
+==============================================================================
+  seg        n  default | XGB [95% CI]          | baseline [95% CI]     | XGB - baseline [95% CI]  | Bonferroni
+  Q1     71696   19.09% | 0.6480 [0.643, 0.653] | 0.6535 [0.648, 0.658] | -0.0055 [-0.009, -0.002] | [-0.010, -0.001]
+  Q2     71580   15.56% | 0.6722 [0.667, 0.678] | 0.6765 [0.671, 0.682] | -0.0043 [-0.008, -0.001] | [-0.009, +0.000]
+  Q3     72906   13.62% | 0.6881 [0.683, 0.693] | 0.6883 [0.683, 0.693] | -0.0001 [-0.004, +0.003] | [-0.004, +0.004]
+  Q4     66605   11.01% | 0.6974 [0.692, 0.704] | 0.6885 [0.682, 0.695] | +0.0089 [+0.004, +0.014] | [+0.003, +0.015]
+  Bonferroni column: 4 comparisons in this family, normal approximation from the
+  bootstrap standard error. A segment where XGB beats the baseline should clear zero there.
+
+==============================================================================
+2. THE GRADIENT IN EACH MODEL, and whether the two models share it
+==============================================================================
+  grade A minus grade B  XGB      +0.0428  95% CI [+0.033, +0.053]
+  grade A minus grade B  baseline +0.0420  95% CI [+0.032, +0.053]
+  grade A minus grade B  XGB gradient minus baseline gradient = +0.0009  95% CI [-0.006, +0.008]
+
+  income Q4 minus Q1     XGB      +0.0494  95% CI [+0.042, +0.057]
+  income Q4 minus Q1     baseline +0.0350  95% CI [+0.027, +0.043]
+  income Q4 minus Q1     XGB gradient minus baseline gradient = +0.0145  95% CI [+0.009, +0.021]
+
+  If the last line of a pair has an interval crossing zero, both models carry the
+  same gradient: it belongs to the population, not to the XGB.
+
+==============================================================================
+3. FIT-TO-FIT NOISE - eight seeds, same rows and columns
+==============================================================================
+  seed 42 refit identical to the published artifact, bit for bit: True
+  seed 42    A 0.6477  B 0.6048  C 0.5965  D 0.5889  E 0.5818  F 0.5878  G 0.5854  Q1 0.6480  Q2 0.6722  Q3 0.6881  Q4 0.6974
+  seed 0     A 0.6482  B 0.6045  C 0.5971  D 0.5880  E 0.5839  F 0.5896  G 0.6054  Q1 0.6463  Q2 0.6724  Q3 0.6874  Q4 0.6982
+  seed 1     A 0.6495  B 0.6055  C 0.5962  D 0.5870  E 0.5846  F 0.5892  G 0.6156  Q1 0.6466  Q2 0.6724  Q3 0.6891  Q4 0.6967
+  seed 7     A 0.6503  B 0.6055  C 0.5954  D 0.5885  E 0.5842  F 0.5939  G 0.6080  Q1 0.6459  Q2 0.6722  Q3 0.6896  Q4 0.6982
+  seed 13    A 0.6481  B 0.6062  C 0.5945  D 0.5876  E 0.5887  F 0.5842  G 0.6290  Q1 0.6453  Q2 0.6714  Q3 0.6872  Q4 0.6986
+  seed 99    A 0.6491  B 0.6045  C 0.5950  D 0.5868  E 0.5857  F 0.5895  G 0.6128  Q1 0.6470  Q2 0.6724  Q3 0.6868  Q4 0.6972
+  seed 123   A 0.6471  B 0.6054  C 0.5963  D 0.5880  E 0.5837  F 0.5880  G 0.6128  Q1 0.6475  Q2 0.6724  Q3 0.6875  Q4 0.6973
+  seed 2024  A 0.6510  B 0.6069  C 0.5975  D 0.5885  E 0.5844  F 0.5936  G 0.6315  Q1 0.6483  Q2 0.6724  Q3 0.6898  Q4 0.6971
+
+  seg      mean       sd      min      max   published (seed 42) rank, 1 = highest
+  A      0.6489   0.0013   0.6471   0.6510   7 of 8
+  B      0.6054   0.0008   0.6045   0.6069   6 of 8
+  C      0.5961   0.0010   0.5945   0.5975   3 of 8
+  D      0.5879   0.0008   0.5868   0.5889   1 of 8
+  E      0.5846   0.0020   0.5818   0.5887   8 of 8
+  F      0.5895   0.0032   0.5842   0.5939   7 of 8
+  G      0.6126   0.0144   0.5854   0.6315   8 of 8
+  Q1     0.6469   0.0010   0.6453   0.6483   2 of 8
+  Q2     0.6722   0.0003   0.6714   0.6724   6 of 8
+  Q3     0.6882   0.0011   0.6868   0.6898   4 of 8
+  Q4     0.6976   0.0007   0.6967   0.6986   4 of 8
+  gradient A - B   across seeds: mean +0.0434, min +0.0417, max +0.0448
+  gradient Q4 - Q1 across seeds: mean +0.0507, min +0.0487, max +0.0533
+
+figure: reports\figures\subgroup_auc_vs_baseline.png
