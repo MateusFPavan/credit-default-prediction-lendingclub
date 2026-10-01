@@ -68,9 +68,11 @@ and evaluated to maximize **expected portfolio profit** rather than accuracy or 
   *modeling*, not engineering: the model is now served and monitored, but the selection
   bias above still means its score must not drive a real lending decision. Deployment
   proves the artifact is servable and observable — not that it is fit to underwrite.
-- **Degrades outside the safest grade.** AUC is 0.648 in grade A and between 0.582 and
-  0.605 in grades B through G, and is lowest for the lowest-income quartile — less reliable
-  where a lender most needs it (§8).
+- **Weaker than a simpler model for the lowest-income borrowers.** Within-segment AUC is
+  lower in the riskier grades (0.648 in A, 0.582 to 0.605 in B through G), but a logistic
+  baseline shows the same drop, so that is the population, not this model. By income it is
+  partly the model: in the lowest-income quartile the XGB ranks borrowers slightly worse
+  than the baseline (0.648 against 0.654), while it is better in the highest (§8).
 - **Not transferable to 60-month loans.** Applied without refitting, performance degrades
   severely (AUC 0.6846 → 0.6433; the logistic baseline's profit gain turns negative). The
   two terms are structurally distinct risk pools; the API enforces `term=36`.
@@ -149,8 +151,13 @@ forgone interest $23.12M, net $9.03M. False-negative cost is ~11.9x false-positi
 
 **Disaggregated by subgroup** (test): AUC is highest in grade A (0.648), drops to 0.605 in B
 and declines more gently to 0.582 in E, the lowest; F (0.588) and G (0.585) do not decline
-further, on 1,358 and 244 loans. It rises with income, from Q1 (0.648) to Q4 (0.697). The
-model is less reliable in the riskier grades and the lowest-income quartile.
+further, on 1,358 and 244 loans. It rises with income, from Q1 (0.648) to Q4 (0.697). A
+logistic baseline put through the same cuts shows the same grade gradient (A minus B: 0.042
+against 0.043), so the grade pattern belongs to the population. The income gradient is
+steeper in the XGB (0.049 against 0.035 from Q1 to Q4): the XGB is ahead of the baseline in
+the highest quartile and slightly behind it in the lowest (-0.006, below zero after a
+Bonferroni correction). Method and intervals: `docs/technical_report.md` §8 and
+`scripts/subgroup_auc_vs_baseline.py`.
 
 **Calibration** (expanded 2026-08-31 with the cause, which was previously unknown): the
 model systematically **underestimates** default — observed exceeds predicted in **all ten
@@ -204,7 +211,9 @@ always 0 outside the training population).
 - **Selection bias**: estimates P(default | approved), never having seen rejected
   applicants; valid only as a second layer over an already-approved book, not a first-pass
   filter (`docs/DATA_CARD.md`).
-- **Subgroup reliability**: weaker where risk is higher (§8), and the cost asymmetry is
+- **Subgroup reliability**: within-grade AUC is lower where risk is higher, as it is for a
+  logistic baseline (§8); the model-specific gap is in the lowest-income quartile. The cost
+  asymmetry is
   large — a bad loan costs 2.67x what a good loan returns at the median ($5,398.84 vs
   $2,023.62) — so subgroup weakness concentrates where errors are most expensive.
 - **Subgroup mitigation, considered and not implemented (2026-08-25)**: two concrete
@@ -214,6 +223,10 @@ always 0 outside the training population).
   approval bars for different grade/income groups, a fair-lending policy question this
   project has no standing to settle unilaterally. Recorded as an open limitation with
   named next steps, not a silently accepted gap.
+  **Measured on 2026-10-01**, before any retraining: the grade gradient is shared by a
+  logistic baseline, so there is no model-specific grade gap for re-weighting to close.
+  The income gap is model-specific and small (-0.006 AUC against the baseline in the
+  lowest quartile); whether it justifies a retrain is an open decision.
 - **Temporal drift, now quantified (2026-08-31)**: hyperparameters and the threshold were
   fit on 2007-2014 data. Drift of 2015+ vintages away from that distribution is observable
   via the PSI monitor (§10). Its effect on the score is now measured rather than asserted:

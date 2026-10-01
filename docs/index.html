@@ -231,7 +231,7 @@ const DATA = {
     ["2015Q3",0.04],["2015Q4",0.04]
   ],
   grade: [["A",0.648,5.4],["B",0.605,11.9],["C",0.597,19.4],
-          ["D",0.589,26.2],["E",0.582,32.8],["F",0.588,42.4],["G",0.584,46.3]],
+          ["D",0.589,26.2],["E",0.582,32.8],["F",0.588,42.4],["G",0.585,46.3]],
   income: [["Q1",0.648,19.1],["Q2",0.672,15.6],["Q3",0.688,13.6],["Q4",0.697,11.0]],
   // cumulative % of defaults captured by rejecting the riskiest X% (model vs random)
   lift: [[0,0],[10,20.7],[20,36.5],[30,49.7],[40,61.1],[50,71.1],
@@ -500,18 +500,20 @@ function psiCard(title, rows, scale, bands, note){
 function limitsSection(){
   const s=$(`<section id="limits"><div class="wrap">
     <div class="sec-head"><span class="sec-num">05</span><h2>Where the model is weakest</h2></div>
-    <p class="sec-sub">Reported directly, not smoothed into an aggregate. The model discriminates
-    worst exactly where a lender would most want precision: the highest-risk grades and the
-    lowest-income borrowers.</p>
+    <p class="sec-sub">Reported directly, not smoothed into an aggregate. AUC is lower inside the
+    riskier grades, but a plain logistic baseline shows the same drop, so that part is the
+    population. The part that is the model's: for the lowest-income borrowers it ranks risk
+    slightly worse than the baseline.</p>
     <div class="grid2">
       <div class="card"><h3>AUC by credit grade</h3>
-        <p class="note">Falls from 0.65 (grade A) toward 0.58 (grade G), even as the default rate
-        climbs from 5% to 46%.</p>
+        <p class="note">0.65 in grade A, 0.58 to 0.61 in B through G, as the default rate climbs
+        from 5% to 46%. A logistic baseline drops by the same amount from A to B.</p>
         ${sgChart(DATA.grade, "grade", 4)}
       </div>
       <div class="card"><h3>AUC by income quartile</h3>
-        <p class="note">Weakest in Q1 (lowest income), where borrowers default most — the reverse
-        of where precision matters.</p>
+        <p class="note">Weakest in Q1 (lowest income), where borrowers default most. Here the XGB
+        is slightly behind a logistic baseline (0.648 against 0.654), the one gap that belongs to
+        the model.</p>
         ${sgChart(DATA.income, "income", 0)}
       </div>
     </div>

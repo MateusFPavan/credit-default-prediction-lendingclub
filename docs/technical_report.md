@@ -266,28 +266,46 @@ profit figure can hide systematic weakness in specific, protected-adjacent segme
 **AUC is highest in grade A and lower in every riskier grade; it rises monotonically with
 income.** The grade pattern is not a steady slope: a large drop from A to B, a gentler
 decline through E, the lowest grade, and no further decline in F and G, whose estimates
-rest on few loans:
+rest on few loans. The logistic baseline is shown alongside, for the reason below:
 
-| Grade | AUC-ROC |
-|---|---|
-| A | 0.648 |
-| B | 0.605 |
-| C | 0.597 |
-| D | 0.589 |
-| E | 0.582 |
-| F (1,358 loans) | 0.588 |
-| G (244 loans) | 0.585 |
+| Grade | XGB | Logistic baseline |
+|---|---|---|
+| A | 0.6477 | 0.6411 |
+| B | 0.6048 | 0.5992 |
+| C | 0.5965 | 0.5854 |
+| D | 0.5889 | 0.5735 |
+| E | 0.5818 | 0.5675 |
+| F (1,358 loans) | 0.5878 | 0.5679 |
+| G (244 loans) | 0.5854 | 0.5828 |
 
-| Income quartile | AUC-ROC |
-|---|---|
-| Q1 (lowest income) | 0.648 |
-| Q2 | 0.672 |
-| Q3 | 0.688 |
-| Q4 (highest income) | 0.697 |
+| Income quartile | XGB | Logistic baseline |
+|---|---|---|
+| Q1 (lowest income) | 0.6480 | 0.6535 |
+| Q2 | 0.6722 | 0.6765 |
+| Q3 | 0.6881 | 0.6883 |
+| Q4 (highest income) | 0.6974 | 0.6885 |
 
-**The model is less reliable in the riskier grades and the lowest-income quartile.** That
-is where a lender would most need precision, and the reverse of what the
-headline AUC (0.6846) alone would suggest.
+**How much of this is the model.** A within-segment AUC depends on the segment as well as
+on the model: cutting by a variable that is itself a risk score, as the grade is, leaves
+each slice more uniform and harder for any model to rank. The test is to put a second,
+unrelated model through the same cuts (`scripts/subgroup_auc_vs_baseline.py`; output in
+`reports/subgroup_auc_vs_baseline.txt`):
+
+- **By grade, the gradient belongs to the population.** The baseline drops from A to B by
+  the same amount as the XGB (0.042 against 0.043; difference +0.001, 95% CI -0.006 to
+  +0.008). Within every grade the XGB's point estimate is ahead of the baseline's, and the
+  lead survives a Bonferroni correction for the seven comparisons in grades C and D
+  (+0.011 and +0.015).
+- **By income, part of the gradient is the model's.** The baseline's AUC also rises with
+  income, by 0.035 from Q1 to Q4; the XGB's rises by 0.049. The difference, +0.015 (95% CI
+  +0.009 to +0.021), comes from both ends: the XGB is ahead of the baseline in the highest
+  quartile (+0.009) and **behind it in the lowest** (-0.006, below zero after the
+  correction for four comparisons). Refitting the XGB with eight seeds does not change
+  this: in the lowest quartile every refit scores below the baseline.
+
+**So the model is not weaker where risk is higher; it is weaker, relative to a simpler
+model, for the lowest-income borrowers.** That is a narrower and more specific limitation
+than the raw table suggests, and it is the one this report carries forward.
 
 **Calibration.** The model systematically **underestimates** default: observed default
 exceeds predicted probability in every decile of the test set (decile 10: 31.80% observed
@@ -376,8 +394,10 @@ cheap route buys almost nothing, and the cause explains both.
 - **Selection bias.** The model estimates P(default | approved), never having observed a
   rejected application. It cannot be used to score the rejected-applicant population, and
   says nothing about how it would perform as a first-pass underwriting filter.
-- **Subgroup reliability.** Weaker in the riskier grades and the lowest-income quartile (§8),
-  compounding the 2.67x cost asymmetry (§2) exactly where it is largest.
+- **Subgroup reliability.** Within-grade AUC is lower in the riskier grades, but a logistic
+  baseline shows the same pattern, so it is a property of the population (§8). The
+  model-specific weakness is narrower: in the lowest-income quartile the XGB ranks
+  borrowers slightly worse than the baseline (§8), compounding the cost asymmetry of §2.
 - **Term non-transferability.** Not valid for 60-month loans without a dedicated
   scorecard (§9).
 - **Calibration is optimistic, not conservative** (§8). This is relevant to any
@@ -402,6 +422,8 @@ verified test result. It asserts the $242,230,710.89 test profit reproduces exac
 walk-forward tuning and bootstrap experiments referenced in §6.2, §7.2, and §10 are not
 re-run by that entry point (they take hours). They are preserved in the numbered working
 notebooks (`notebooks/06` through `11`) and summarized in `docs/FACTS.md`.
+`python scripts/subgroup_auc_vs_baseline.py` reproduces the baseline comparison in §8 the
+same way, also in about ten minutes.
 `python scripts/ablation_noise_floor.py` reproduces §7.6 in about ten minutes; it checks
 the baseline against the published figure before measuring anything, and stops if it
 does not match.

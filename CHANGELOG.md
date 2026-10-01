@@ -4,6 +4,33 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-10-01
+
+### Added
+
+- **Within-segment AUC against a logistic baseline.** `scripts/subgroup_auc_vs_baseline.py`
+  puts the logistic baseline through the same grade and income cuts as the published
+  model, with paired bootstrap intervals, Bonferroni-adjusted intervals per family of
+  segments, and the per-segment spread across eight refits. Output in
+  `reports/subgroup_auc_vs_baseline.txt`; the figure
+  `reports/figures/subgroup_auc_vs_baseline.png` is now the one the README shows.
+
+### Changed
+
+- **The subgroup caveat now says which part is the model's.** The documents read the
+  lower within-grade AUC in the riskier grades as a weakness of the model. The logistic
+  baseline shows the same drop from grade A to B (0.042 against 0.043; difference +0.001,
+  95% CI -0.006 to +0.008), so that pattern belongs to the population. By income the
+  gradient is steeper in the XGB (0.049 against 0.035 from Q1 to Q4), and in the
+  lowest-income quartile the XGB ranks borrowers slightly worse than the baseline (-0.006,
+  below zero after a Bonferroni correction). That is the model-specific limitation, and the
+  README, model card, technical report and dashboard now state it instead. No published
+  number changed.
+
+### Fixed
+
+- `docs/index.html` showed grade G's AUC as 0.584; the published figure is 0.585 (0.5854).
+
 ## [3.3.1] - 2026-09-30
 
 ### Fixed
