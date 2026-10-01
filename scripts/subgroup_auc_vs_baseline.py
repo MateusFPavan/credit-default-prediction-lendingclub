@@ -202,7 +202,7 @@ SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e7e6e2"
 C_XGB, C_M1 = "#2a78d6", "#eb6834"
 plt.rcParams.update({"font.size": 10, "axes.edgecolor": GRID, "axes.labelcolor": INK2,
                      "xtick.color": INK2, "ytick.color": INK2, "text.color": INK})
-fig, axes = plt.subplots(1, 2, figsize=(11, 5.6), sharey=True,
+fig, axes = plt.subplots(1, 2, figsize=(11, 5.2), sharey=True,
                          gridspec_kw={"width_ratios": [7, 4]}, facecolor=SURFACE)
 w = 0.38
 top = 0.0
@@ -220,9 +220,6 @@ for ax, (family, segs), title in zip(axes, FAMILIES, ("By Lending Club grade (A 
                linewidth=2, label=name if family == "grade" else None, zorder=2)
         ax.errorbar(x + off, vals, yerr=[vals - lo_ci, hi_ci - vals], fmt="none",
                     ecolor=INK2, elinewidth=1, capsize=2, zorder=3)
-        if family == "grade":   # selective direct label on the first group only
-            ax.text(x[0] + off, hi_ci[0] + 0.004, "XGB" if key == "xgb" else "baseline",
-                    ha="center", va="bottom", fontsize=8, color=INK2)
     ax.set_xticks(x)
     ax.set_xticklabels(["%s\n%s" % (s, format(len(seg_idx[s]), ",")) for s in segs])
     ax.set_title(title, color=INK, fontsize=11, pad=8)
@@ -235,10 +232,10 @@ axes[0].set_ylim(0.50, np.ceil((top + 0.015) / 0.025) * 0.025)
 axes[0].set_ylabel("AUC-ROC within segment (0.5 = chance)")
 fig.suptitle("Within-segment AUC: published XGB against a logistic baseline", x=0.055,
              y=0.975, ha="left", fontsize=13, fontweight="bold", color=INK)
-fig.text(0.055, 0.905, "Test set (2015 loans). Error bars: 95% bootstrap intervals. "
+fig.text(0.055, 0.898, "Test set (2015 loans). Error bars: 95% bootstrap intervals. "
          "Under each label: loans in the test set.", ha="left", fontsize=9.5, color=INK2)
-fig.legend(loc="upper left", bbox_to_anchor=(0.048, 0.89), ncol=2, frameon=False, fontsize=9.5)
-fig.tight_layout(rect=(0, 0, 1, 0.84))
+fig.legend(loc="upper left", bbox_to_anchor=(0.048, 0.885), ncol=2, frameon=False, fontsize=9.5)
+fig.tight_layout(rect=(0, 0, 1, 0.875))
 fig.savefig(OUT_PNG, dpi=150, facecolor=SURFACE)
 out()
 out("figure: %s" % OUT_PNG)
