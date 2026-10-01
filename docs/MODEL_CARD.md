@@ -68,11 +68,12 @@ and evaluated to maximize **expected portfolio profit** rather than accuracy or 
   *modeling*, not engineering: the model is now served and monitored, but the selection
   bias above still means its score must not drive a real lending decision. Deployment
   proves the artifact is servable and observable — not that it is fit to underwrite.
-- **Weaker than a simpler model for the lowest-income borrowers.** Within-segment AUC is
+- **Lower-income borrowers: where the logistic baseline comes out ahead.** Within-segment AUC is
   lower in the riskier grades (0.648 in A, 0.582 to 0.605 in B through G), but a logistic
   baseline shows the same drop, so that is the population, not this model. By income it is
-  partly the model: in the lowest-income quartile the XGB ranks borrowers slightly worse
-  than the baseline (0.648 against 0.654), while it is better in the highest (§8).
+  partly the model: in the two lower-income quartiles the XGB ranks borrowers slightly
+  worse than the baseline (0.648 against 0.654 in the lowest), while it is better in the
+  highest (§8).
 - **Not transferable to 60-month loans.** Applied without refitting, performance degrades
   severely (AUC 0.6846 → 0.6433; the logistic baseline's profit gain turns negative). The
   two terms are structurally distinct risk pools; the API enforces `term=36`.
@@ -327,10 +328,8 @@ production batch has been monitored, so the PSI figures here are from test vinta
 
 ## 11. Remaining next steps and footprint
 
-Deliberately deferred (deployment and drift monitoring are done — §10): a separate
-60-month scorecard; automated retraining execution with scheduling/alerting (§10 TODO);
-and monitoring a real production batch to replace the test-vintage PSI figures.
-Recalibration was explored and rejected (`docs/FACTS.md` §5).
+Deployment and drift monitoring are done (§10). What comes next, in order, and the
+options considered and set aside, each with its evidence: [`NEXT_STEPS.md`](NEXT_STEPS.md).
 
 **Compute footprint**: Trained on CPU in ~55s; no GPU required; carbon footprint
 negligible (single-machine, minutes of total compute). Full pipeline reproduction

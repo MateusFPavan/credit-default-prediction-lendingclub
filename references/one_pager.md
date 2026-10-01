@@ -27,8 +27,9 @@ test a decision policy against what actually happened.
   of treating every prediction error the same way.
 - Validated the way a bank actually operates: trained on the past, tested on the future
   (walk-forward validation), never on a random shuffle of the data.
-- Calibrated the model's probability estimates and stress-tested them, then audited where
-  the model is weakest by borrower segment rather than reporting one aggregate score.
+- Measured how well the probabilities are calibrated, traced the bias to the credit cycle,
+  and rejected two corrections on evidence; then audited every borrower segment against a
+  baseline rather than reporting one aggregate score.
 
 ## Results
 
@@ -38,10 +39,12 @@ test a decision policy against what actually happened.
   would have missed entirely.
 - **Rejecting the riskiest 10% of applicants avoids ~21% of all defaults**, twice as
   effective as a random cut of the same size.
-- **Honest limitation, stated up front:** the model is least reliable in the highest-risk,
-  lowest-income segment, and it was trained only on approved loans, so it cannot score
-  rejected applicants (a selection-bias limit). It is also not built for live lending
-  decisions as-is.
+- **Where it is weakest, measured against a baseline:** lower AUC in the riskiest grades
+  turned out to belong to the population, since a logistic baseline drops the same way.
+  The gap that is the model's own is among lower-income borrowers, where the baseline is
+  slightly ahead (lowest quartile: AUC 0.648 against 0.654). Trained only on approved
+  loans, the model cannot score rejected applicants, and it is built for methodology
+  review, not live lending.
 
 ## Stack
 
@@ -51,4 +54,5 @@ Python · pandas · scikit-learn · XGBoost · SHAP
 
 - Repository: https://github.com/MateusFPavan/credit-default-prediction-lendingclub
 - Full technical report: `docs/technical_report.md`
+- Next steps, and options set aside: `docs/NEXT_STEPS.md`
 - Contact: https://www.linkedin.com/in/mateus-fardin-pavan/

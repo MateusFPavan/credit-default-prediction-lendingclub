@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   segments, and the per-segment spread across eight refits. Output in
   `reports/subgroup_auc_vs_baseline.txt`; the figure
   `reports/figures/subgroup_auc_vs_baseline.png` is now the one the README shows.
+- **`docs/NEXT_STEPS.md`: one place for what comes next.** The README, the model card
+  (§11) and the technical report (§13) each kept their own list of next steps, and the
+  lists had drifted apart. They now point to one document that gives each item its
+  evidence, the reason it is not done yet, how it would be done, how success would be
+  judged and what would move it up, followed by three options considered and set aside:
+  reject inference, recalibration, and a separate threshold for lower-income borrowers.
 
 ### Changed
 
@@ -23,13 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   95% CI -0.006 to +0.008), so that pattern belongs to the population. By income the
   gradient is steeper in the XGB (0.049 against 0.035 from Q1 to Q4), and in the
   lowest-income quartile the XGB ranks borrowers slightly worse than the baseline (-0.006,
-  below zero after a Bonferroni correction). That is the model-specific limitation, and the
-  README, model card, technical report and dashboard now state it instead. No published
-  number changed.
+  below zero after a Bonferroni correction), and in the second quartile too (-0.004, its
+  corrected interval just reaching zero). That is the model-specific limitation, and the
+  README, model card, technical report, dashboard and one-page case studies now state it
+  instead. No published number changed.
 
 ### Fixed
 
 - `docs/index.html` showed grade G's AUC as 0.584; the published figure is 0.585 (0.5854).
+- The one-page case studies said the model's probabilities were calibrated. Calibration
+  was measured, and both recalibration routes were tested and rejected (technical report
+  §10); they now say that.
 
 ## [3.3.1] - 2026-09-30
 

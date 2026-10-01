@@ -29,14 +29,15 @@ Rejecting just the riskiest 10% of applicants avoids ~21% of all defaults, twice
 effective as a random cut of the same size. Trained and evaluated on ~673K matured
 36-month Lending Club loans (2007-2015, 14.8% default rate).
 
-**Honest caveat, stated up front, not buried**: for the lowest-income borrowers the model
-ranks risk slightly worse than a plain logistic regression does. It was trained only on approved loans, so it cannot
-score rejected applicants (a selection-bias limit). It is also not built for live lending
-decisions as-is.
+**Scope**: a second decision layer over an already-approved book of 36-month loans, built
+for methodology review, not live lending. Trained only on approved loans, it cannot score
+rejected applicants. Every borrower segment is measured against the logistic baseline,
+including the lower-income borrowers for whom the baseline comes out ahead (lowest
+quartile: AUC 0.648 against 0.654); see [Limitations](#limitations).
 
 ## Interactive Dashboard
 
-**[▶ Explore the live dashboard](https://mateusfpavan.github.io/credit-default-prediction-lendingclub/)** — a scrollable walkthrough from the $9M headline through model discrimination, the profit decomposition, an interactive threshold slider (recomputes the confusion matrix and portfolio profit live on the 2015 test set), PSI stability with a raw-vs-clean sentinel-artifact contrast, and honest subgroup limitations.
+**[▶ Explore the live dashboard](https://mateusfpavan.github.io/credit-default-prediction-lendingclub/)** — a scrollable walkthrough from the $9M headline through model discrimination, the profit decomposition, an interactive threshold slider (recomputes the confusion matrix and portfolio profit live on the 2015 test set), PSI stability with a raw-vs-clean sentinel-artifact contrast, and subgroup limitations measured against a baseline.
 
 [![Credit risk dashboard](dashboard/screenshots/01_performance.png)](https://mateusfpavan.github.io/credit-default-prediction-lendingclub/)
 
@@ -153,8 +154,8 @@ smoothed over in an aggregate metric:
   returns 0.6% of Brier. Neither is worth it, because the default rate follows the
   **credit cycle** rather than a trend — so there is no stable target to calibrate to.
 
-Remaining next steps (deliberate, not gaps): a dedicated 60-month scorecard, automated
-retraining execution with alerting, and monitoring against a real production batch.
+What comes next, in order, and the options considered and set aside, each with its
+evidence: [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md).
 
 Full disaggregated results, calibration analysis, and SHAP explainability:
 [`docs/technical_report.md`](docs/technical_report.md) §8.
@@ -299,7 +300,7 @@ src/             data · features · economics · models · psi · scoring · cl
 models/          xgb_final.joblib (versioned) + model_meta.json; logistic_baseline.joblib (gitignored)
 reports/figures/ business-impact figures
 reports/reject/  reject-inference data artifacts (coverage, comparison, provenance manifest)
-docs/            technical report, data card, model card, setup guide, facts sheet, reject-inference roadmap, dimensional model
+docs/            technical report, data card, model card, next steps, setup guide, facts sheet, reject-inference roadmap, dimensional model
 data/marts/      star-schema tables: fct_loan + four dimensions (see docs/DIMENSIONAL_MODEL.md)
 dashboard/       Power BI (.pbix) + theme + screenshots; interactive web dashboard in docs/index.html
 references/      one-page recruiter case studies (EN and pt-BR)
@@ -315,6 +316,7 @@ Dockerfile       containerized inference API
 | [`docs/FACTS.md`](docs/FACTS.md) | Canonical, verified facts sheet, the single source of truth for every number |
 | [`docs/DATA_CARD.md`](docs/DATA_CARD.md) | Dataset datasheet (provenance, license, missing-data mechanisms) |
 | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model specification, training procedure, evaluation, serving |
+| [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) | Next steps in order, and options set aside, each with its evidence |
 | [`docs/reject_inference_roadmap.md`](docs/reject_inference_roadmap.md) | Reject-inference investigation (v3): full methodology, decisions, and results |
 | [`docs/SETUP.md`](docs/SETUP.md) | Environment setup and reproduction, step by step |
 | [`CHANGELOG.md`](CHANGELOG.md) | Versioned change history (Keep a Changelog / SemVer) |

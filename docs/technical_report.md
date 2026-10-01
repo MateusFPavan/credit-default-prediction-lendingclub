@@ -300,8 +300,9 @@ unrelated model through the same cuts (`scripts/subgroup_auc_vs_baseline.py`; ou
   income, by 0.035 from Q1 to Q4; the XGB's rises by 0.049. The difference, +0.015 (95% CI
   +0.009 to +0.021), comes from both ends: the XGB is ahead of the baseline in the highest
   quartile (+0.009) and **behind it in the lowest** (-0.006, below zero after the
-  correction for four comparisons). Refitting the XGB with eight seeds does not change
-  this: in the lowest quartile every refit scores below the baseline.
+  correction for four comparisons). The second quartile is behind as well (-0.004), with
+  its corrected interval just reaching zero. Refitting the XGB with eight seeds does not
+  change this: in both lower quartiles every refit scores below the baseline.
 
 **So the model is not weaker where risk is higher; it is weaker, relative to a simpler
 model, for the lowest-income borrowers.** That is a narrower and more specific limitation
@@ -432,14 +433,11 @@ does not match.
 
 The evidence supports shipping the walk-forward-tuned XGBoost model as a **second
 decision layer** over an existing approval process, on 36-month loans, with the frozen
-0.31 threshold, not as a standalone underwriting system. Recommended next steps, named
-explicitly rather than left implicit: (1) a dedicated 60-month scorecard, justified by
-the transfer finding in §9; (2) automated retraining execution (scheduling and alerting
-on top of the retraining-trigger policy already defined in `docs/MODEL_CARD.md` §10-11);
-(3) revisiting calibration only if a use case specifically requires well-calibrated
-absolute probabilities rather than a fixed threshold, given the cost measured in §10.
-Deployment as a served API with drift monitoring, listed here in earlier versions of this
-report, shipped in v2.0.0 (`docs/MODEL_CARD.md` §10; `CHANGELOG.md`).
+0.31 threshold, not as a standalone underwriting system. What comes next, in order, and
+the options considered and set aside, each with its evidence and what would change the
+decision: `docs/NEXT_STEPS.md`. Deployment as a served API with drift monitoring, listed
+here in earlier versions of this report, shipped in v2.0.0 (`docs/MODEL_CARD.md` §10;
+`CHANGELOG.md`).
 
 ---
 

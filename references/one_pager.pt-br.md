@@ -30,8 +30,9 @@ permitiu testar uma política de decisão contra o que de fato aconteceu, não u
 - Validei do jeito que um banco de fato opera: treinei no passado e testei no futuro
   (validação *walk-forward*: janelas temporais crescentes, nunca um embaralhamento
   aleatório dos dados).
-- Calibrei as probabilidades do modelo, testei sua robustez, e auditei onde ele é mais
-  fraco por perfil de tomador, em vez de reportar só uma nota agregada.
+- Medi a calibração das probabilidades, rastreei o viés até o ciclo de crédito e rejeitei
+  duas correções com base em evidência; depois comparei cada perfil de tomador com um
+  baseline, em vez de reportar só uma nota agregada.
 
 ## Resultados
 
@@ -41,10 +42,12 @@ permitiu testar uma política de decisão contra o que de fato aconteceu, não u
   vence com folga em lucro, valor que um teste de acurácia sozinho teria deixado passar.
 - **Recusar apenas os 10% mais arriscados evita ~21% de todas as inadimplências**, o
   dobro da eficácia de um corte aleatório do mesmo tamanho.
-- **Ressalva honesta, dita de cara:** o modelo é menos confiável exatamente no segmento
-  de maior risco e menor renda, e foi treinado só sobre empréstimos aprovados, então não
-  pontua quem foi recusado (viés de seleção). Também não foi construído para decisão de
-  crédito ao vivo como está.
+- **Onde ele é mais fraco, medido contra um baseline:** a queda de AUC nos grades de
+  maior risco é da população, porque uma regressão logística cai do mesmo jeito. A
+  lacuna própria do modelo está nos tomadores de renda mais baixa, onde o baseline fica
+  ligeiramente à frente (quartil de menor renda: AUC 0,648 contra 0,654). Treinado só
+  sobre empréstimos aprovados, o modelo não pontua quem foi recusado, e foi construído
+  para revisão de metodologia, não para decisão de crédito ao vivo.
 
 ## Stack
 
@@ -54,4 +57,5 @@ Python · pandas · scikit-learn · XGBoost · SHAP
 
 - Repositório: https://github.com/MateusFPavan/credit-default-prediction-lendingclub
 - Relatório técnico completo: `docs/technical_report.md`
+- Próximos passos e opções descartadas: `docs/NEXT_STEPS.md`
 - Contato: https://www.linkedin.com/in/mateus-fardin-pavan/
