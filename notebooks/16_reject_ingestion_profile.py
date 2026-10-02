@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Fase 1 — Reject population: ingestion, count reconciliation, and profiling
+# MAGIC # Phase 1 — Reject population: ingestion, count reconciliation, and profiling
 # MAGIC
 # MAGIC Extends the credit-default project (v2.0.0, approved-loan model) toward the
 # MAGIC **rejected-applicant population**, the half of the Lending Club data the approved
@@ -45,8 +45,8 @@ except NameError:
 
 if ON_DATABRICKS:
     # Free Edition stores data in a Unity Catalog Volume, not the legacy DBFS.
-    # Adjust <catalog>/<schema>/<volume> to your workspace (see the import step
-    # in the doc block Mateus received). Example layout:
+    # Upload the raw .csv.gz (and loans_clean.parquet) into the Volume first, then
+    # adjust <catalog>/<schema>/<volume> to your workspace. Example layout:
     BASE = "/Volumes/workspace/default/credit_reject"
     RAW_GZ = f"{BASE}/rejected_2007_to_2018Q4.csv.gz"
     PROC = f"{BASE}/processed"
@@ -63,7 +63,12 @@ else:
         .config("spark.driver.memory", "4g")
         .getOrCreate()
     )
-    REPO = r"C:\Users\Avell\Documents\Projetos\credit-default-prediction-lendingclub"
+    # Repo root: CREDIT_REPO if set, otherwise derived from the working directory so the
+    # notebook runs from the repo root, notebooks/ or notebooks/scratch/ (__file__ is not
+    # reliable in a Databricks-format notebook, hence getcwd()).
+    REPO = os.environ.get("CREDIT_REPO") or os.path.abspath(
+        os.path.join(os.getcwd(), *([".."] * {"notebooks": 1, "scratch": 2}.get(os.path.basename(os.getcwd()), 0)))
+    )
     RAW_GZ = os.path.join(REPO, "data", "raw", "rejected_2007_to_2018Q4.csv.gz")
     PROC = os.path.join(REPO, "data", "processed", "reject")
     APPROVED_CLEAN = os.path.join(REPO, "data", "processed", "loans_clean.parquet")
@@ -157,7 +162,7 @@ print(f"\n[AUDIT] Rows flagged as corrupt after robust parsing: {n_corrupt:,}")
 if n_corrupt == 0:
     print("[AUDIT] OK — zero malformed rows remain. Parsing fix verified in-dataframe.")
 else:
-    print("[AUDIT] STOP — corrupt rows remain. Sample below. Report to Mateus, do not treat.")
+    print("[AUDIT] STOP — corrupt rows remain; inspect the sample below before treating anything.")
     df_cached.filter(F.col(CORRUPT_COL).isNotNull()).select(CORRUPT_COL).show(5, truncate=120)
 
 PARSE_AUDIT = {"corrupt_rows_after_fix": int(n_corrupt),
@@ -174,9 +179,9 @@ print("[MEM] Audit cache released (unpersist).")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cell 3 — Count reconciliation (corrects the [CONFIRMAR] in the decision docs)
-# MAGIC The decision documents mark the rejected volume as ~27M, unmeasured. This is the
-# MAGIC measured number. Report it back to the document generator so the docs get corrected.
+# MAGIC ## Cell 3 — Count reconciliation
+# MAGIC The rejected volume is usually quoted as ~27M rows without a measurement. This cell
+# MAGIC measures the exact row count and the raw file size for the provenance manifest.
 
 # COMMAND ----------
 
@@ -260,7 +265,7 @@ else:
 
     # Calibrate driver memory and the per-slice row ceiling from available RAM.
     # (Driver memory must be set before the JVM starts; if the session is already up this
-    #  is a no-op — report it so Mateus can restart the kernel with more if needed.)
+    #  is a no-op — restart the kernel with more driver memory if needed.)
     if total_gb is not None:
         print(f"[MEM] total={total_gb:.1f} GB | available={avail_gb:.1f} GB")
         # aim to keep each toPandas() slice comfortably under ~0.75 GB of pandas memory
@@ -421,7 +426,7 @@ else:
 
 # MAGIC %md
 # MAGIC ## Cell 6 — Comparative profile: approved vs rejected on shared dimensions
-# MAGIC Descriptive only. NOTE (see roadmap finding B): the two `dti` fields are NOT on an
+# MAGIC Descriptive only. NOTE: the two `dti` fields are NOT on an
 # MAGIC identical basis — approved dti is LC-computed excluding mortgage; rejected dti is
 # MAGIC the application-time value of a DENIED application. Compare shape/order of magnitude,
 # MAGIC not identical scales. emp_length IS comparable; amount is comparable.
@@ -460,7 +465,7 @@ else:
         print(f"   rejected: mean={r[0]:,} median={r[1]:,}")
 
         # dti (WITH the non-comparability caveat)
-        print("\n=== DTI: approved vs rejected (NOT identical basis — see roadmap B) ===")
+        print("\n=== DTI: approved vs rejected (NOT identical basis — see the Cell 6 note) ===")
         a = con.execute(f"SELECT ROUND(AVG(dti),2), MEDIAN(dti) FROM {appr} WHERE dti BETWEEN 0 AND 100").fetchone()
         r = con.execute(f"SELECT ROUND(AVG(dti),2), MEDIAN(dti) FROM {rej} WHERE dti BETWEEN 0 AND 100").fetchone()
         print(f"   approved: mean={a[0]} median={a[1]}  (LC-computed, excl. mortgage)")
@@ -468,7 +473,7 @@ else:
 
         # Geography: rejected side only this phase. Approved-side addr_state is not in
         # loans_clean.parquet (dropped in notebook 03 as a non-feature); comparing requires
-        # regenerating it from the raw accepted CSV, deferred to Phase 2. See roadmap E.
+        # regenerating it from the raw accepted CSV, deferred to Phase 2.
         print("\n=== Rejected: top 10 states (approved comparison deferred to Phase 2) ===")
         state_null = con.execute(
             f"SELECT ROUND(100.0*(COUNT(*)-COUNT(state))/COUNT(*), 4) FROM {rej}"

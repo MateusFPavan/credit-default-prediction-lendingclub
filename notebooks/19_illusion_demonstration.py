@@ -1,39 +1,57 @@
 # ============================================================================
-# Fase 2a - Bloco 11: demonstracao da ilusao (tese critica)
+# Phase 2a: demonstration of the illusion of improvement in reject inference
 # ============================================================================
-# Tese: reject inference NAO e honestamente validavel no Lending Club. Nao e
-# "parcelling ganhou/perdeu" -- e DEMONSTRAR, com o proprio dado, por que qualquer
-# "melhora" reportada e provavelmente artefato de avaliacao. Tres razoes medidas:
+# Purpose
+#   Show, with the Lending Club data itself, why reject inference (RI) cannot be validated
+#   on this dataset and why any reported improvement is likely an evaluation artifact.
 #
-#   1. Sinal compartilhado fraco: thin model (features comuns aos dois lados) tem AUC
-#      out-of-sample 0,5620 +/- 0,0027 (Bloco 10, 4-fold CV) -- mal acima de 0,5. Qualquer
-#      label inferido a partir desse score e quase ruido.
-#   2. Sem outcome de recusado: confirmado no repo (auditoria pre-comparacao -- nenhuma
-#      coluna de label de recusado em lugar nenhum). Kickout/AUK (metrica padrao de RI)
-#      e impossivel -- exige recusados rotulados (ver roadmap, achado registrado).
-#   3. Sem amostra nao-enviesada nem taxa populacional real: a metrica que escapa da
-#      ilusao (distorcao da taxa de treino vs populacional, Illusion of Improvement,
-#      arXiv 2606.18479) exige a taxa populacional VERDADEIRA como referencia. O LC nao a
-#      tem (recusados nunca viraram emprestimo). Kozodoi (arXiv 1909.06108) consegue
-#      escapar porque tem uma amostra nao-enviesada de 1.967 casos (recusados aceitos de
-#      proposito, pra observar outcome); nao temos analogo aqui. Conclusao do Illusion:
-#      avaliar RI nos aprovados PRODUZ ilusao de melhora -- extrapolacao supera ate um
-#      Oraculo com labels reais, porque avaliar no pool aceito recompensa fronteiras
-#      extremas. Qualquer ganho reportado nos aprovados e provavel artefato, nao melhora
-#      real.
+# Why RI cannot be validated here (three measured reasons)
+#   1. Weak shared signal: the thin model (features common to approved and rejected
+#      applications) has an out-of-sample AUC of 0.5620 +/- 0.0027 (4-fold CV, notebook
+#      17), barely above 0.5. Any label inferred from this score is close to noise.
+#   2. No outcome for rejected applications: no column in the repository holds a reject
+#      label. Kickout/AUK, the standard RI metric, requires labeled rejects and therefore
+#      cannot be computed (see docs/reject_inference.md).
+#   3. No unbiased sample and no true population default rate: the metric that escapes the
+#      illusion (distortion of the training default rate relative to the population rate,
+#      Illusion of Improvement, arXiv 2606.18479) needs the true population rate as a
+#      reference. Lending Club does not have it, because rejected applications never
+#      became loans. Kozodoi (arXiv 1909.06108) avoids the problem with an unbiased sample
+#      of 1,967 cases (rejects accepted on purpose to observe their outcome); there is no
+#      equivalent here. The Illusion paper concludes that evaluating RI on approved loans
+#      produces an illusion of improvement: extrapolation outperforms even an Oracle with
+#      true labels, because evaluation on the accepted pool rewards extreme decision
+#      boundaries. Any gain reported on approved loans is therefore a likely artifact, not
+#      a real improvement.
 #
-# O que este codigo DEMONSTRA: nao mede "quem ganhou" (parcelling vs baseline). Mede o
-# SINTOMA do artefato que o Illusion identifica -- a taxa de default do conjunto de
-# treino aumentado (aprovados reais + recusados com label inferido) inflada em relacao a
-# taxa real dos aprovados, e como essa inflacao CRESCE com o base_mult (quanto mais
-# "agressivo" o RI, mais inflada a taxa, mais forte o sintoma). Sem a taxa populacional
-# verdadeira, essa inflacao NAO e interpretavel como correcao de vies -- pode ser
-# exatamente isso, ou pode ser um vies novo sendo criado. E por isso que RI nao e
-# validavel aqui, nao porque o parcelling "nao funciona": o parcelling foi implementado e
-# roda (competencia tecnica, Blocos 1-10), mas a avaliacao honesta dele e impossivel com
-# este dado (a contribuicao intelectual deste bloco).
+# Inputs
+#   Approved loans (split 'train') and rejected applications (partitioned Parquet,
+#   27,648,741 rows), loaded through the shared loaders of notebooks/17_reject_thin_model.py.
 #
-# Referencias: Illusion of Improvement (Scarone & Baeza-Yates, arXiv 2606.18479, ECML
+# Method
+#   Rather than measuring which strategy wins (parcelling vs baseline), the script measures
+#   the symptom of the artifact that the Illusion paper identifies: the default rate of the
+#   augmented training set (observed approved loans plus rejects with parcelling labels) is
+#   inflated relative to the observed rate of approved loans, and the inflation grows with
+#   base_mult (the more aggressive the RI, the larger the inflation and the stronger the
+#   symptom).
+#
+# Measured result (10 bands; approved default rate 12.43%)
+#   base_mult   training rate after RI   inflation vs approved
+#     1.0              0.1417                  +0.0173
+#     1.5              0.2121                  +0.0878
+#     2.0              0.2825                  +0.1581
+#     2.5              0.3530                  +0.2287
+#     3.0              0.4235                  +0.2992
+#   The inflation grows monotonically and roughly linearly with base_mult.
+#
+# Known limitations
+#   Without the true population rate, this inflation cannot be interpreted as a bias
+#   correction: it may be one, or it may be a new bias. This is why RI cannot be validated
+#   here, not because parcelling does not work: parcelling is implemented and runs
+#   (notebook 17), but this data does not support a valid evaluation of it.
+#
+# References: Illusion of Improvement (Scarone & Baeza-Yates, arXiv 2606.18479, ECML
 # PKDD 2026); Kozodoi (arXiv 1909.06108, 2407.13009); Hugo Lopes 2018.
 
 import sys
@@ -44,8 +62,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# notebooks/17_reject_thin_model.py carregado como modulo (nome comeca com digito, nao
-# importavel via `import`) -- mesmo padrao ja usado em notebooks/18_profit_evaluation.py.
+# notebooks/17_reject_thin_model.py is loaded as a module (its name starts with a digit, so
+# it cannot be imported with `import`); same pattern as notebooks/18_profit_evaluation.py.
 _NB17_PATH = Path(__file__).resolve().parent / "17_reject_thin_model.py"
 _spec = importlib.util.spec_from_file_location("nb17_reject_thin_model", _NB17_PATH)
 nb17 = importlib.util.module_from_spec(_spec)
@@ -55,20 +73,21 @@ _spec.loader.exec_module(nb17)
 def demonstrate_illusion(X_appr, y_appr, X_rej, bands_list=(10,),
                           base_list=(1.0, 1.5, 2.0, 2.5, 3.0)):
     """
-    Demonstra os sintomas da ilusao de melhora (Illusion of Improvement, 2026) no LC.
-    Metrica-chave: taxa de default do conjunto de TREINO apos RI vs taxa dos aprovados.
-    Se o parcelling INFLA a taxa de treino acima da dos aprovados, e' o sintoma do
-    artefato -- e essa inflacao crescendo com base_mult e a evidencia de que "RI mais
-    agressivo" so aprofunda o artefato, nao uma melhora real.
+    Show the symptoms of the illusion of improvement (Illusion of Improvement, 2026) on
+    Lending Club data. Key metric: default rate of the training set after RI vs the default
+    rate of approved loans. If parcelling inflates the training rate above the approved
+    rate, that is the symptom of the artifact; inflation that grows with base_mult shows
+    that "more aggressive RI" only deepens the artifact rather than delivering a real
+    improvement.
     """
     base_rate = float(y_appr.mean())
-    print(f"[REFERENCIA] taxa de default dos APROVADOS (unico observavel): {base_rate:.4f}")
-    print("[LIMITACAO] taxa POPULACIONAL real: DESCONHECIDA (recusados sem outcome).")
-    print("            Sem ela, nao ha como dizer se a inflacao corrige ou distorce.\n")
+    print(f"[REFERENCE] default rate of approved loans (only observable rate): {base_rate:.4f}")
+    print("[LIMITATION] true population default rate: unknown (rejects have no outcome).")
+    print("             Without it, the inflation could be a correction or a distortion.\n")
 
     thin = nb17.baseline_ignore_rejects(X_appr, y_appr)
 
-    print(f"{'n_bands':>8}{'base_mult':>10}{'taxa_treino_pos_RI':>20}{'inflacao_vs_aprovados':>22}")
+    print(f"{'n_bands':>8}{'base_mult':>10}{'train_rate_post_RI':>20}{'inflation_vs_approved':>22}")
     results = []
     for nb in bands_list:
         for bm in base_list:
@@ -79,34 +98,34 @@ def demonstrate_illusion(X_appr, y_appr, X_rej, bands_list=(10,),
             results.append((nb, bm, train_rate, inflacao))
             print(f"{nb:>8}{bm:>10}{train_rate:>20.4f}{inflacao:>+22.4f}")
 
-    print("\n[LEITURA] Se a taxa de treino SOBE com base_mult (inflacao positiva "
-          "crescente), e' o sintoma do artefato do Illusion 2026: RI mais agressivo "
-          "infla a taxa de treino, cria fronteira mais extrema, e PARECE melhorar nos "
-          "aprovados sem melhora real. Sem a taxa populacional verdadeira, essa inflacao "
-          "NAO e interpretavel como correcao.")
+    print("\n[READING] If the training rate rises with base_mult (growing positive "
+          "inflation), that is the artifact symptom from Illusion of Improvement (2026): more "
+          "aggressive RI inflates the training rate, creates a more extreme boundary and "
+          "appears to improve on approved loans without a real gain. Without the true "
+          "population rate, this inflation cannot be read as a correction.")
     return results
 
 
 if __name__ == "__main__":
-    print("[Fase 2a - Bloco 11] demonstracao da ilusao de melhora (tese critica)\n")
+    print("[Phase 2a] Demonstration of the illusion of improvement in reject inference\n")
 
-    print("Carregando aprovados (split 'train')...")
+    print("Loading approved loans (split 'train')...")
     X_appr, y_appr, issue_d_appr = nb17.load_approved_shared()
-    print(f"  {len(X_appr):,} linhas | bad rate {y_appr.mean()*100:.2f}%")
+    print(f"  {len(X_appr):,} rows | bad rate {y_appr.mean()*100:.2f}%")
 
-    print("\nCarregando recusados (Parquet particionado, 27.648.741 linhas esperadas)...")
+    print("\nLoading rejected applications (partitioned Parquet, 27,648,741 rows expected)...")
     X_rej, rej_flags, rej_counts = nb17.load_rejected_shared()
-    print(f"  {len(X_rej):,} linhas")
+    print(f"  {len(X_rej):,} rows")
 
-    print("\n=== TRES PERNAS DA TESE (registro) ===")
-    print("  1. Sinal compartilhado fraco: thin model AUC out-of-sample = 0.5620 +/- 0.0027 "
-          "(Bloco 10, 4-fold CV) -- mal acima de 0.5.")
-    print("  2. Sem outcome de recusado: confirmado no repo (auditoria pre-comparacao) -- "
-          "Kickout/AUK impossivel.")
-    print("  3. Sem amostra nao-enviesada nem taxa populacional real: sem referencia pra "
-          "validar se o RI corrige vies ou cria um novo (Illusion of Improvement, 2026).")
+    print("\n=== Why RI cannot be validated on this data ===")
+    print("  1. Weak shared signal: thin model out-of-sample AUC = 0.5620 +/- 0.0027 "
+          "(4-fold CV), barely above 0.5.")
+    print("  2. No outcome for rejected applications: no reject label exists in the data, "
+          "so Kickout/AUK cannot be computed.")
+    print("  3. No unbiased sample and no true population rate: no reference to check "
+          "whether RI corrects bias or creates a new one (Illusion of Improvement, 2026).")
 
-    print("\n=== DEMONSTRACAO: inflacao da taxa de treino vs base_mult ===")
+    print("\n=== Demonstration: training default-rate inflation vs base_mult ===")
     demonstrate_illusion(X_appr, y_appr, X_rej)
 
-    print("\n[Fase 2a - Bloco 11] concluido.")
+    print("\n[Phase 2a] Illusion demonstration complete.")

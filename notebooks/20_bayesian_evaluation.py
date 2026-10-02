@@ -1,58 +1,75 @@
 # ============================================================================
-# Fase 2b - Bloco 1: avaliacao Bayesiana ciente do vies (Kozodoi) + varredura de prior
+# Phase 2b: bias-aware Bayesian evaluation (Kozodoi) with a prior sweep
 # ============================================================================
-# CONCEITO (material de reaquecimento Bayesiano -- ler antes do codigo)
+# PURPOSE
+# Test whether bias-aware Bayesian evaluation can measure model performance on the full
+# through-the-door population of Lending Club, or whether the estimate is determined by
+# the prior assumed for the rejected applications.
 #
-# O problema de fundo (vies de selecao / MNAR): o modelo de credito so ve o desfecho
-# (bom/mau pagador) de quem foi APROVADO. A avaliacao padrao (AUC, lucro, threshold
-# otimo) roda so nesse subconjunto -- e o subconjunto e enviesado por construcao: a
-# propria LendingClub ja filtrou os "piores" antes do modelo os ver. Uma performance boa
-# nos aprovados nao garante a mesma performance na populacao "through-the-door" (todo
-# mundo que aplicou, aprovado ou nao).
+# BACKGROUND
+# Selection bias (MNAR): the credit model only observes the outcome (good/bad payer) of
+# APPROVED applications. Standard evaluation (AUC, profit, optimal threshold) runs on that
+# subset only, and the subset is biased by construction: Lending Club had already screened
+# out the riskiest applicants before the model saw them. Good performance on approved
+# loans does not guarantee the same performance on the through-the-door population
+# (everyone who applied, approved or not).
 #
-# A ideia do Kozodoi (arXiv 2407.13009) pra medir a performance na populacao INTEIRA sem
-# ter os labels dos recusados: tratar o label de cada recusado como uma VARIAVEL LATENTE
-# (desconhecida, mas com uma distribuicao assumida) em vez de simplesmente ignora-la.
-# Bayesiano no sentido classico: comeca de um PRIOR (a taxa de default que vc ACREDITA que
-# os recusados teriam, antes de ver qualquer score) e usa isso pra completar a metrica na
-# populacao inteira -- e' literalmente "assumir uma crenca sobre o que nao pode ser
-# observado, e propagar essa crenca pela conta".
+# Kozodoi (arXiv 2407.13009) measures performance on the WHOLE population without reject
+# labels by treating each rejected applicant's label as a LATENT VARIABLE (unknown, with an
+# assumed distribution) instead of ignoring it. In the classic Bayesian sense, it starts
+# from a PRIOR -- the default rate the rejected applicants are believed to have, before any
+# score is seen -- and uses it to complete the metric on the full population: an assumption
+# about what cannot be observed is propagated through the calculation.
 #
-# Formalmente (versao didatica, nao o framework Bayesiano completo do paper -- ver NOTA
-# de escopo mais abaixo): a metrica esperada na carteira aceita e' uma combinacao de
-#   (a) o que sabemos com certeza: o label REAL dos aprovados aceitos.
-#   (b) o que so podemos ESPERAR: o label dos recusados aceitos, sob o prior assumido.
-# Pergunta que isso responde: "se eu assumir que X% dos recusados dariam default, qual
-# seria a performance REAL do meu modelo se ele decidisse sobre TODO MUNDO que aplicou,
-# nao so sobre quem a LendingClub deixou ele ver?"
+# METHOD
+# A simplified version, not the paper's full Bayesian framework (see Scope below). For a
+# policy that accepts the lowest-PD `acceptance_rate` share of the pooled population
+# (approved + rejected), the expected default rate of the accepted portfolio combines
+#   (a) what is known: the observed label of the accepted approved applications;
+#   (b) what can only be expected: the label of the accepted rejected applications under
+#       the assumed prior.
+# Question answered: "if X% of the rejected applicants would default, what would the
+# model's actual performance be if it decided on EVERYONE who applied, not only on the
+# applications Lending Club let it see?"
+# The prior is swept over 0.10-0.50 at acceptance rates of 10%, 30% and 50%. Both
+# populations are scored by the thin model, the only model that puts them on the same
+# probability scale.
 #
-# O ponto CRITICO, que e o motivo deste bloco existir: o resultado depende inteiramente
-# do PRIOR escolhido. O Kozodoi consegue mostrar um "teto" porque assume um PRIOR
-# PERFEITO (ele conhece, ou aproxima muito bem, a taxa real dos recusados, porque o
-# dataset dele tem uma amostra de controle -- ver Fase 2a, achado sobre a amostra
-# nao-enviesada de 1.967 casos que o Kozodoi tem e o Lending Club nao). No mundo real -- e
-# no Lending Club especificamente -- o prior e DESCONHECIDO. Isso nao invalida o metodo
-# Bayesiano em si (ele e matematicamente correto dado um prior), mas levanta a pergunta
-# que a Fase 2b existe pra responder com NUMERO, nao so citacao:
+# INPUTS
+#   - Approved applications, 'train' split (nb17.load_approved_shared).
+#   - Rejected applications, partitioned Parquet, 27,648,741 rows expected
+#     (nb17.load_rejected_shared).
+#   - Thin model baseline_ignore_rejects from notebooks/17_reject_thin_model.py.
 #
-#   Se a estimativa Bayesiana MUDA MUITO conforme o prior assumido, o metodo Bayesiano
-#   nao resolveu o problema de nao ter os labels -- ele so TRANSFERIU o problema pra
-#   escolha do prior. E como a Fase 2a ja provou (empiricamente, nao por citacao) que o
-#   Lending Club NAO tem a taxa populacional real pra escolher o prior certo, a conclusao
-#   e que a avaliacao Bayesiana AQUI tambem fica indeterminada -- ela herda a mesma
-#   limitacao estrutural que already invalidou a Fase 2a (ausencia de outcome de
-#   recusado, ausencia de amostra nao-enviesada).
+# RESULT / INTERPRETATION
+# The result depends entirely on the chosen PRIOR. Kozodoi can show a performance
+# "ceiling" because the prior there is close to correct: that dataset has an unbiased
+# control sample of 1,967 cases, which Lending Club does not have (Phase 2a finding). On
+# Lending Club the prior is UNKNOWN. This does not invalidate the Bayesian method (it is
+# mathematically correct given a prior), but the sweep quantifies the dependence:
+#   - Rejected applications are about 159x the approved training rows, so they make up
+#     nearly all of any accepted set and the expected default rate follows the prior with
+#     a slope of about 0.99.
+#   - The amplitude across the prior grid is about 0.396, identical at acceptance rates of
+#     10%, 30% and 50%.
+# An estimate that moves this much with the prior means the Bayesian method has not
+# solved the missing-label problem; it has moved it to the choice of prior. Phase 2a showed
+# empirically, not by citation, that Lending Club does not provide the true population
+# default rate needed to choose that prior, so the Bayesian evaluation is also
+# undetermined here: it inherits the same structural limitation that ruled out validation
+# in Phase 2a (no outcome for rejected applications, no unbiased sample).
 #
-# NOTA de escopo (decidido, nao ambiguidade): implementamos a extensao Bayesiana da TAXA
-# DE DEFAULT esperada da carteira sob uma politica de aceitacao -- nao o framework
-# Bayesiano completo do paper (que envolve inferencia posterior formal sobre parametros
-# do modelo). A versao aqui basta pra testar a tese (a sensibilidade ao prior), e o rigor
-# extra da simulacao completa nao teria retorno de portfolio (decisao ja tomada, nao
-# reaberta aqui).
+# KNOWN LIMITATIONS / SCOPE
+#   - Implements the Bayesian extension of the expected portfolio DEFAULT RATE under an
+#     acceptance policy, not the paper's full framework (formal posterior inference over
+#     model parameters). This version is sufficient to test the thesis (sensitivity to the
+#     prior); the full simulation is out of scope.
+#   - Scores come from the thin model (AUC 0.56). A weak score leaves the choice of
+#     accepted applications dominated by the prior rather than by the score.
 #
-# Referencias: Kozodoi (arXiv 2407.13009, 1909.06108); Illusion of Improvement (arXiv
-# 2606.18479) -- a mesma logica de "sem taxa populacional real, sem validacao honesta"
-# que fechou a Fase 2a se aplica aqui, agora testada contra o metodo Bayesiano tambem.
+# References: Kozodoi (arXiv 2407.13009, 1909.06108); Illusion of Improvement (arXiv
+# 2606.18479) -- the reasoning that closed Phase 2a (no true population rate, no valid
+# validation) applies here as well, now tested against the Bayesian method.
 
 import sys
 import importlib.util
@@ -62,8 +79,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# notebooks/17_reject_thin_model.py carregado como modulo (mesmo padrao ja usado em
-# notebooks/18_profit_evaluation.py e notebooks/19_illusion_demonstration.py).
+# Load notebooks/17_reject_thin_model.py as a module (same pattern as
+# notebooks/18_profit_evaluation.py and notebooks/19_illusion_demonstration.py).
 _NB17_PATH = Path(__file__).resolve().parent / "17_reject_thin_model.py"
 _spec = importlib.util.spec_from_file_location("nb17_reject_thin_model", _NB17_PATH)
 nb17 = importlib.util.module_from_spec(_spec)
@@ -73,24 +90,27 @@ _spec.loader.exec_module(nb17)
 def bayesian_expected_default_rate(pd_appr, y_appr, pd_rej, prior_rej_bad_rate,
                                     acceptance_rate):
     """
-    Estima a taxa de default ESPERADA da carteira, se aceitassemos os `acceptance_rate`
-    de menor risco da POPULACAO INTEIRA (aprovados + recusados), usando:
-    - label real dos aprovados aceitos;
-    - label ESPERADO dos recusados aceitos, sob o PRIOR (prior_rej_bad_rate).
+    Estimate the EXPECTED portfolio default rate if the lowest-risk `acceptance_rate`
+    share of the WHOLE population (approved + rejected) were accepted, using:
+    - the observed label of the accepted approved applications;
+    - the EXPECTED label of the accepted rejected applications under the PRIOR
+      (prior_rej_bad_rate).
 
-    IMPORTANTE (integracao): pd_appr e pd_rej precisam estar na MESMA escala de
-    probabilidade pra fazer sentido ordena-los juntos (np.argsort sobre a concatenacao).
-    So o thin model pontua as duas populacoes na mesma escala (o XGB de 78 features nao
-    consegue pontuar recusados -- seria a mesma armadilha de escala que o Bloco 7
-    encontrou e corrigiu). Por isso pd_appr aqui vem do THIN MODEL, nao do XGB.
+    IMPORTANT (integration): pd_appr and pd_rej must be on the SAME probability scale for
+    a joint ranking to make sense (np.argsort over the concatenation). Only the thin model
+    scores both populations on the same scale (the 78-feature XGB cannot score rejected
+    applications; mixing the two would repeat the scale mismatch addressed in
+    notebooks/18_profit_evaluation.py). For that reason pd_appr here comes from the THIN
+    MODEL, not the XGB.
 
-    prior_rej_bad_rate: a taxa de default ASSUMIDA dos recusados (o prior). E' isto que
-    varremos -- porque nao sabemos o valor verdadeiro (Fase 2a: sem taxa populacional real).
+    prior_rej_bad_rate: the ASSUMED default rate of the rejected applications (the prior).
+    This is the swept parameter, because its true value is unknown (Phase 2a: no true
+    population rate).
     """
     all_pd = np.concatenate([pd_appr, pd_rej])
     n_total = len(all_pd)
     n_accept = int(n_total * acceptance_rate)
-    order = np.argsort(all_pd)  # aceita menor PD primeiro
+    order = np.argsort(all_pd)  # accept lowest PD first
     accepted = order[:n_accept]
 
     is_appr = accepted < len(pd_appr)
@@ -106,15 +126,17 @@ def prior_sweep(pd_appr, y_appr, pd_rej,
                  prior_grid=(0.10, 0.20, 0.30, 0.40, 0.50),
                  acceptance_rates=(0.1, 0.3, 0.5)):
     """
-    Varre o PRIOR e mostra quanto a taxa de default esperada da carteira muda.
-    Se muda MUITO -> a conclusao depende do prior -> Bayesian herda a limitacao do LC.
-    Se muda POUCO -> Bayesian seria robusto (improvavel dado o AUC 0.56 do thin model:
-    um score fraco deixa a decisao de quem entra dominada pelo prior, nao pelo score).
+    Sweep the PRIOR and report how much the expected portfolio default rate changes.
+    Large change -> the conclusion depends on the prior -> the Bayesian method inherits
+    the Lending Club limitation.
+    Small change -> the Bayesian method would be robust (unlikely given the thin model's
+    AUC of 0.56: a weak score leaves the accept decision dominated by the prior, not by
+    the score).
     """
     appr_base = float(y_appr.mean())
-    print(f"[REF] taxa default dos aprovados: {appr_base:.4f}")
-    print("[NOTA] prior verdadeiro dos recusados: DESCONHECIDO (Fase 2a). Por isso varremos.\n")
-    print(f"{'accept_rate':>12}{'prior':>8}{'taxa_esperada':>16}{'n_rej_aceitos':>16}")
+    print(f"[REF] approved default rate: {appr_base:.4f}")
+    print("[NOTE] true prior for rejected applications: UNKNOWN (Phase 2a), hence the sweep.\n")
+    print(f"{'accept_rate':>12}{'prior':>8}{'expected_rate':>16}{'n_rej_accepted':>16}")
     results = {}
     for ar in acceptance_rates:
         for prior in prior_grid:
@@ -122,30 +144,30 @@ def prior_sweep(pd_appr, y_appr, pd_rej,
             results[(ar, prior)] = (rate, n_rej)
             print(f"{ar:>12}{prior:>8}{rate:>16.4f}{n_rej:>16,}")
         vals = [results[(ar, p)][0] for p in prior_grid]
-        print(f"    -> amplitude sob esta accept_rate: {max(vals) - min(vals):.4f}\n")
-    print("[LEITURA] Amplitude grande = a conclusao depende do prior = Bayesian nao resolve")
-    print("o problema no LC (so o transfere para a escolha do prior, que nao sabemos).")
+        print(f"    -> amplitude at this accept_rate: {max(vals) - min(vals):.4f}\n")
+    print("[INTERPRETATION] Large amplitude = conclusion depends on the prior = the Bayesian")
+    print("method does not solve the LC problem (it only moves it to the unknown prior).")
     return results
 
 
 if __name__ == "__main__":
-    print("[Fase 2b - Bloco 1] avaliacao Bayesiana + varredura de prior\n")
+    print("[Phase 2b] Bayesian evaluation + prior sweep\n")
 
-    print("Carregando aprovados (split 'train')...")
+    print("Loading approved applications ('train' split)...")
     X_appr, y_appr, issue_d_appr = nb17.load_approved_shared()
-    print(f"  {len(X_appr):,} linhas | bad rate {y_appr.mean()*100:.2f}%")
+    print(f"  {len(X_appr):,} rows | bad rate {y_appr.mean()*100:.2f}%")
 
-    print("\nCarregando recusados (Parquet particionado, 27.648.741 linhas esperadas)...")
+    print("\nLoading rejected applications (partitioned Parquet, 27,648,741 rows expected)...")
     X_rej, rej_flags, rej_counts = nb17.load_rejected_shared()
-    print(f"  {len(X_rej):,} linhas")
+    print(f"  {len(X_rej):,} rows")
 
-    print("\nTreinando thin model (baseline_ignore_rejects, Bloco 10) -- unico modelo que "
-          "pontua as duas populacoes na mesma escala...")
+    print("\nTraining thin model (baseline_ignore_rejects) -- the only model that "
+          "scores both populations on the same scale...")
     thin = nb17.baseline_ignore_rejects(X_appr, y_appr)
     pd_appr = thin.predict_proba(X_appr)[:, 1]
     pd_rej = thin.predict_proba(X_rej)[:, 1]
 
-    print("\n=== VARREDURA DE PRIOR ===")
+    print("\n=== PRIOR SWEEP ===")
     results = prior_sweep(pd_appr, y_appr, pd_rej)
 
-    print("\n[Fase 2b - Bloco 1] concluido.")
+    print("\n[Phase 2b] done.")

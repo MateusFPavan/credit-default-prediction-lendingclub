@@ -1,3 +1,5 @@
+# Read-only diagnostic: row count and non-numeric Risk_Score/Amount, default vs quote/escape parsing.
+# Provenance for the parser options of notebook 16, whose output feeds notebooks/17_reject_thin_model.py.
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -11,7 +13,11 @@ spark = (
 )
 spark.sparkContext.setLogLevel("WARN")
 
-REPO = r"C:\Users\Avell\Documents\Projetos\credit-default-prediction-lendingclub"
+# Repo root: CREDIT_REPO if set, otherwise derived from the working directory
+# (repo root, notebooks/ or notebooks/scratch/).
+REPO = os.environ.get("CREDIT_REPO") or os.path.abspath(
+    os.path.join(os.getcwd(), *([".."] * {"notebooks": 1, "scratch": 2}.get(os.path.basename(os.getcwd()), 0)))
+)
 RAW_GZ = os.path.join(REPO, "data", "raw", "rejected_2007_to_2018Q4.csv.gz")
 
 # The column that should be numeric; a non-numeric value there flags a broken row.
@@ -39,14 +45,14 @@ totalA = dfA.count()
 badA = dfA.filter(~numeric_or_null(RISK_COL))
 n_badA = badA.count()
 
-print("==================== CONTAGEM (parser atual) ====================")
-print(f"Total de linhas               : {totalA:,}")
-print(f"Risk_Score NAO-numerico       : {n_badA:,}")
-print(f"Proporcao                     : {100.0*n_badA/totalA:.6f}%")
+print("==================== COUNTS (current parser) ====================")
+print(f"Total rows                    : {totalA:,}")
+print(f"Risk_Score non-numeric        : {n_badA:,}")
+print(f"Proportion                    : {100.0*n_badA/totalA:.6f}%")
 
 # also check Amount Requested being non-numeric (a shift usually breaks more than one col)
 badA_amt = dfA.filter(~numeric_or_null(AMT_COL)).count()
-print(f"Amount Requested NAO-numerico : {badA_amt:,}")
+print(f"Amount Requested non-numeric  : {badA_amt:,}")
 
 # ---------------------------------------------------------------------------
 # PARSER B — adjusted quote/escape handling for nested double-quotes ("" as escape)
@@ -66,29 +72,29 @@ totalB = dfB.count()
 n_badB = dfB.filter(~numeric_or_null(RISK_COL)).count()
 badB_amt = dfB.filter(~numeric_or_null(AMT_COL)).count()
 
-print("\n=============== COMPARACAO DE PARSERS (aspas ajustadas) ===============")
-print(f"Total linhas   | atual: {totalA:,}   ajustado: {totalB:,}")
-print(f"Risk_Score bad | atual: {n_badA:,}    ajustado: {n_badB:,}")
-print(f"Amount   bad   | atual: {badA_amt:,}    ajustado: {badB_amt:,}")
+print("\n=============== PARSER COMPARISON (adjusted quote/escape) ===============")
+print(f"Total rows     | current: {totalA:,}   adjusted: {totalB:,}")
+print(f"Risk_Score bad | current: {n_badA:,}    adjusted: {n_badB:,}")
+print(f"Amount   bad   | current: {badA_amt:,}    adjusted: {badB_amt:,}")
 if totalB == totalA and n_badB < n_badA:
-    print(">> O parsing ajustado RECUPEROU linhas sem perder contagem. Preferir na origem.")
+    print(">> Adjusted parsing RECOVERED the broken rows with no change in row count. Prefer fixing at the source.")
 elif totalB != totalA:
-    print(">> ATENCAO: o parser ajustado mudou a contagem total de linhas. "
-          "Reportar ambos os numeros ao Mateus; nao assumir qual esta certo.")
+    print(">> WARNING: the adjusted parser changed the total row count. "
+          "Record both numbers; do not assume which one is correct.")
 else:
-    print(">> O parsing ajustado NAO reduziu as linhas quebradas. "
-          "O residuo e' provavelmente corrupcao real; try_cast e' o caminho para o residuo.")
+    print(">> Adjusted parsing did NOT reduce the broken rows. "
+          "The remainder is likely genuine corruption; handle it with try_cast.")
 
 # ---------------------------------------------------------------------------
-# EXEMPLOS — mostrar ate 5 linhas problematicas do parser atual, colunas cruas
+# EXAMPLES - up to 5 problematic rows from the current parser, raw columns
 # ---------------------------------------------------------------------------
-print("\n==================== EXEMPLOS (parser atual) ====================")
+print("\n==================== EXAMPLES (current parser) ====================")
 sample_bad = badA.limit(5).collect()
 for i, row in enumerate(sample_bad, 1):
     d = row.asDict()
-    print(f"\n--- linha problematica #{i} ---")
+    print(f"\n--- problematic row #{i} ---")
     for k, v in d.items():
         vs = (v[:120] + "...") if isinstance(v, str) and len(v) > 120 else v
         print(f"    {k!r}: {vs!r}")
 
-print("\n[FIM DO DIAGNOSTICO] Nada foi escrito em disco. Reporte os tres blocos ao Mateus.")
+print("\n[END] Read-only diagnostic; nothing was written to disk.")
