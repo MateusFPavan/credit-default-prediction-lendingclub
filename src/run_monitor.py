@@ -1,13 +1,13 @@
 """
-CLI para src.monitor.monitor_batch (task C1.1, auditoria Boletim 12/13).
+CLI for src.monitor.monitor_batch.
 
-Carrega um lote de registros brutos de um CSV ou parquet, roda o monitor de
-drift contra a baseline de treino, e imprime o veredito. Sai com codigo
-diferente de zero em "drift_unexplained", pra um step de CI conseguir
-alertar sobre isso.
+Loads a batch of raw records from a CSV or parquet file, runs the drift
+monitor against the training baseline, and prints the verdict. Exits with a
+non-zero code on "drift_unexplained", so that a CI step can alert on it
+(the retraining trigger).
 
-Run with: python -m src.run_monitor --batch caminho/para/lote.csv
-(ou .parquet)
+Run with: python -m src.run_monitor --batch path/to/batch.csv
+(or .parquet)
 """
 import argparse
 import sys
@@ -26,16 +26,16 @@ def load_batch(path: Path) -> pd.DataFrame:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Roda o monitor de drift PSI contra um lote de registros."
+        description="Runs the PSI drift monitor against a batch of records."
     )
     parser.add_argument(
         "--batch", required=True, type=Path,
-        help="Caminho pra um CSV ou parquet com registros brutos (mesmo schema de data/processed/*.parquet).",
+        help="Path to a CSV or parquet file with raw records (same schema as data/processed/*.parquet).",
     )
     args = parser.parse_args()
 
     if not args.batch.exists():
-        print(f"ERRO: lote nao encontrado em {args.batch}")
+        print(f"ERROR: batch not found at {args.batch}")
         sys.exit(2)
 
     batch = load_batch(args.batch)
@@ -52,14 +52,14 @@ def main():
         table = result["table"]
         unexplained = table[(table["psi"] > 0.25) & (table["cause"] == "")]
         if len(unexplained):
-            print("Features com PSI critico sem causa conhecida:")
+            print("Features with critical PSI and no known cause:")
             print(unexplained[["feature", "psi", "band"]].to_string(index=False))
 
     if result["verdict"] == "drift_unexplained":
-        print("RETRAIN TRIGGER: drift_unexplained -> politica de retreino deveria disparar "
-              "(ver docs/MODEL_CARD.md secao 10).")
+        print("RETRAIN TRIGGER: drift_unexplained -> the retraining policy should fire "
+              "(see docs/MODEL_CARD.md section 10).")
         sys.exit(1)
-    print("OK: sem trigger de retreino.")
+    print("OK: no retraining trigger.")
 
 
 if __name__ == "__main__":

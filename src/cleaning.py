@@ -106,12 +106,12 @@ def clean_record(raw) -> pd.DataFrame:
         df = raw.copy()
 
     # 0) emp_length (raw text, what the API receives) -> emp_length_anos (what the model
-    #    was trained on). BUG P-049 (2026-08-31): this step did not exist. The API declares
-    #    emp_length: Optional[str] ("10+ years"), nothing converted it, and emp_length_anos
-    #    never reached the frame -- so step 1 flagged it missing and step 4 sentinelled it
-    #    to -1 on EVERY request. Every applicant was scored as "employment length unknown",
-    #    on a feature ranked 26th of 88 by weight and 33rd by gain. In training only 4.355%
-    #    of rows are missing; in serving it was 100%.
+    #    was trained on). Regression guard: an earlier version had no such step. The API
+    #    declares emp_length: Optional[str] ("10+ years"), nothing converted it, and
+    #    emp_length_anos never reached the frame -- so step 1 flagged it missing and step 4
+    #    sentinelled it to -1 on EVERY request. Every applicant was scored as "employment
+    #    length unknown", on a feature ranked 26th of 88 by weight and 33rd by gain. In
+    #    training only 4.355% of rows are missing; in serving it was 100%.
     #
     #    MUST run before step 1: step 1 derives emp_length_missing from whether
     #    emp_length_anos is present. Deriving after would flag as missing a value that had
@@ -169,7 +169,7 @@ def clean_record(raw) -> pd.DataFrame:
 
     # 7) rare-event counters with no sentinel in notebook 03 (never null in training).
     #    For a new record that omits them, default 0 -- justified: they're 0 in >99.5%
-    #    of rows, and forcing 0 moves the score by 0.00003 on average (verified in this session).
+    #    of rows, and forcing 0 moves the score by 0.00003 on average (verified on the training data).
     #    Absence of event = 0 is the field's meaning, not a guess.
     for c in ("acc_now_delinq", "delinq_amnt"):
         if c not in df.columns:
@@ -190,8 +190,8 @@ def clean_record(raw) -> pd.DataFrame:
     #    pandas creates a non-numeric column, which XGBoost rejects. Forces numeric where the
     #    column should be numeric; doesn't touch categorical or date columns.
     #
-    #    BUG P-048 (2026-08-31): the condition here used to be `df[c].dtype == object`, and
-    #    it silently stopped working. Under pandas >= 3.0 a column of strings gets the
+    #    Regression guard: the condition here used to be `df[c].dtype == object`, and it
+    #    silently stopped working. Under pandas >= 3.0 a column of strings gets the
     #    dedicated StringDtype (prints as `str`), NOT object -- so `dtype == object` is
     #    False and the coercion never ran for exactly the case it existed for. The guard was
     #    correct when written and became wrong without anyone touching this file: pandas

@@ -4,6 +4,29 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2026-10-02
+
+### Changed
+
+- **The reject-inference chapter has a written method, in English.**
+  `docs/reject_inference.md` states the question, the data, the treatment of each shared
+  feature, the profit metric, the two lines of evidence that reject inference cannot be
+  validated on this dataset, and what would make it testable. The README, `FACTS.md`,
+  `NEXT_STEPS.md` and the consistency map point to it.
+- **The reject-inference scripts (`notebooks/16` to `21` and `notebooks/scratch/`) are
+  documented in English**, as design notes rather than a work diary. Notebook 16 and the
+  parsing diagnostic resolve the repository path relative to the working directory (or
+  `CREDIT_REPO`) instead of a hard-coded local path. Comments and print text only, apart
+  from that path: no computation changed.
+- **Comments in `src/` and `tests/` explain the guarded property instead of citing
+  internal tracker IDs**, and are in English. Three error/log messages were translated;
+  one test's `match=` pattern follows the new message text. No behaviour changed.
+
+### Removed
+
+- `docs/reject_inference_roadmap.md`, the working log kept during the investigation. Its
+  results are in `docs/reject_inference.md`; the log stays in the git history.
+
 ## [3.4.1] - 2026-10-02
 
 ### Fixed

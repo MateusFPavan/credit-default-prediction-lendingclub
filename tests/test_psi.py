@@ -1,12 +1,11 @@
 """
-Testes unitarios do motor de PSI (src/psi.py) -- usado no monitor de drift de
-producao (src/monitor.py) e nos relatorios trimestrais (src/run_psi.py).
-Cobertura C1.2, auditoria Boletim 12/13.
+Unit tests for the PSI engine (src/psi.py) -- used by the production drift
+monitor (src/monitor.py) and the quarterly reports (src/run_psi.py).
 
-Cobre: bandas, PSI ~0 entre distribuicoes identicas, PSI alto numa mudanca real,
-carve-out de sentinela, categoria nunca vista, e coluna de baixa cardinalidade
-(quantis duplicados) -- os quatro comportamentos documentados no docstring do
-modulo, nao so o caminho feliz.
+Covers: bands, PSI ~0 between identical distributions, high PSI on a real shift,
+the sentinel carve-out, an unseen category, and a low-cardinality column
+(duplicate quantiles) -- the four behaviours documented in the module's
+docstring, not just the happy path.
 """
 import numpy as np
 import pandas as pd
@@ -44,9 +43,9 @@ def test_compute_psi_shifted_distribution_is_unstable():
 
 
 def test_sentinel_carved_into_its_own_bin():
-    """Sentinela (999) no piso minimo de share nao pode se misturar nos bins de quantil."""
+    """A sentinel (999) at the minimum share floor must not blend into the quantile bins."""
     core = pd.Series(np.linspace(0, 100, 990))
-    sentinel = pd.Series([999] * 10)  # 10/1000 = 1% = exatamente SENTINEL_MIN_SHARE
+    sentinel = pd.Series([999] * 10)  # 10/1000 = 1% = exactly SENTINEL_MIN_SHARE
     baseline = pd.concat([core, sentinel], ignore_index=True)
 
     binning = fit_numeric_binning(baseline, name="x")
@@ -58,7 +57,7 @@ def test_sentinel_carved_into_its_own_bin():
 
 def test_unseen_category_gets_its_own_bin():
     baseline = pd.Series(["a", "b", "a", "c"])
-    comparison = pd.Series(["a", "d", "d"])  # "d" nunca apareceu na baseline
+    comparison = pd.Series(["a", "d", "d"])  # "d" never appeared in the baseline
 
     binning = fit_categorical_binning(baseline)
     labels = assign_bins(comparison, binning)
@@ -66,7 +65,7 @@ def test_unseen_category_gets_its_own_bin():
 
 
 def test_low_cardinality_numeric_does_not_crash_on_duplicate_quantiles():
-    """Coluna 0/1 (flag): quantis colapsam, fit_numeric_binning deve deduplicar sem erro."""
+    """0/1 column (a flag): quantiles collapse; fit_numeric_binning must dedupe, not fail."""
     baseline = pd.Series([0] * 800 + [1] * 200)
     binning = fit_numeric_binning(baseline, name="flag")
     assert len(binning.edges) >= 2

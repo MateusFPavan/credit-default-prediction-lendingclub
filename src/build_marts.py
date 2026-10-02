@@ -56,7 +56,7 @@ SPLITS = ("train", "validation", "test")
 JUNK_COLS = ["home_ownership", "verification_status", "initial_list_status", "term"]
 
 # Measures kept on the fact, in the order they appear. Anything absent is skipped rather
-# than assumed -- the cleaned population's column set has changed before (P-045).
+# than assumed -- the cleaned population's column set has changed before.
 MEASURES = ["loan_amnt", "funded_amnt", "int_rate", "installment", "annual_inc",
             "dti", "fico_range_low", "total_rec_prncp", "emp_length_anos", "target"]
 

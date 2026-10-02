@@ -1,25 +1,27 @@
 """
-Estabilidade numerica: NaN e Inf (P-011) e a divergencia de encoding do P-046.
+Numerical stability: NaN and Inf in the feature matrix, and the train/test encoding
+divergence that verify_pipeline checks before its reindex.
 
-Por que existe, e por que o guard nao e um so:
+Why it exists, and why there is more than one guard:
 
-  build_features divide por annual_inc (tres razoes) e por total_acc (uma). Zero em
-  qualquer das duas produz Inf ou NaN. Medido sobre o split de treino congelado em
-  2026-08-31: 0 de 90 colunas com NaN ou Inf, 172.988 linhas, e ZERO linhas com
-  annual_inc == 0 ou total_acc == 0.
+  build_features divides by annual_inc (three ratios) and by total_acc (one). A zero in
+  either produces Inf or NaN. Measured on the frozen training split: 0 of 90 columns
+  with NaN or Inf, 172,988 rows, and ZERO rows with annual_inc == 0 or
+  total_acc == 0.
 
-  Ou seja: no caminho de treino o assert nao pode disparar por causa do dado -- o parquet
-  esta congelado e foi medido limpo. Ele dispara quando ALGUEM MUDA O CODIGO DE FEATURE.
-  E para isso que serve.
+  So on the training path the assert cannot fire because of the data -- the parquet is
+  frozen and was measured clean. It fires when SOMEONE CHANGES THE FEATURE CODE. That is
+  what it is for.
 
-  O caminho que precisa de guard de verdade e o de SERVING, onde a entrada nao e
-  congelada nem medida. La o guard e sobre a SAIDA (probabilidade nao-finita nunca e
-  legitima e nao da pra tratar depois), e a origem provavel -- o contrato da API aceitar
-  annual_inc >= 0 e total_acc >= 0, regiao onde o treino tem zero linhas -- e o P-047.
+  The path that needs a real guard is SERVING, where the input is neither frozen nor
+  measured. There the guard is on the OUTPUT (a non-finite probability is never
+  legitimate and cannot be handled later), and the likely source -- annual_inc or
+  total_acc at zero, a region with zero training rows -- is rejected by the API contract
+  (both must be > 0) but not necessarily by a batch.
 
-  assert_matriz_finita NAO e chamada dentro de prepare_X de proposito: prepare_X e
-  compartilhada pelos dois caminhos, e levantar excecao no serving mataria o monitor de
-  drift numa unica linha suja. E o mesmo raciocinio que removeu o aviso do P-043.
+  assert_matriz_finita is deliberately NOT called inside prepare_X: prepare_X is shared
+  by both paths, and raising on serving would kill the drift monitor on a single dirty
+  row. Same reasoning that removed the first unseen-category warning.
 """
 import numpy as np
 import pandas as pd
@@ -48,28 +50,29 @@ def _matriz(rec):
     return prepare_X(build_features(d), FEATURE_SET, CATEGORICAL_COLS, drop_first=False)
 
 
-# ----------------------------------------------------- o guard fica quieto no normal
+# ------------------------------------------------- the guard stays quiet on normal input
 
 def test_matriz_de_um_registro_valido_passa_em_silencio():
-    """§12.2: guard que fala no caminho feliz e pior que guard nenhum.
+    """A guard that fires on the happy path is worse than no guard at all.
 
-    Se este teste falhar, o assert do P-011 esta gritando lobo e nao deve ser commitado --
-    foi exatamente assim que o aviso do P-043 morreu."""
+    If this test fails, the finiteness assert is crying wolf and must not be committed --
+    that is exactly how the first unseen-category warning died: it fired on every
+    request."""
     assert_matriz_finita(_matriz(BASE), "registro valido")
 
 
 def test_o_guard_nao_esta_dentro_de_prepare_X():
-    """Decisao explicita, mantida viva como teste.
+    """An explicit decision, kept alive as a test.
 
-    prepare_X e compartilhada por treino e serving. Se alguem mover a checagem para
-    dentro dela, uma linha suja passa a derrubar o monitor de drift inteiro. Este teste
-    quebra quando isso acontecer."""
+    prepare_X is shared by training and serving. If someone moves the check inside it, a
+    single dirty row starts taking down the whole drift monitor. This test breaks when
+    that happens."""
     rec = dict(BASE, annual_inc=0.0)
-    X = _matriz(rec)                      # nao pode levantar
+    X = _matriz(rec)                      # must not raise
     assert np.isinf(X["loan_to_income"].iloc[0])
 
 
-# ------------------------------------------------------------- o guard pega o que deve
+# -------------------------------------------------------- the guard catches what it should
 
 def test_guard_pega_NaN_e_nomeia_a_coluna():
     X = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, np.nan]})
@@ -84,8 +87,8 @@ def test_guard_pega_Inf_e_nomeia_a_coluna():
 
 
 def test_guard_ignora_coluna_bool():
-    """As 16 one-hot sao bool. isinf sobre bool levanta TypeError se o filtro numerico
-    nao estiver certo -- este teste trava o filtro."""
+    """The 16 one-hot columns are bool. isinf on bool raises TypeError if the numeric
+    filter is wrong -- this test pins the filter."""
     X = pd.DataFrame({"num": [1.0], "dummy": [True]})
     assert_matriz_finita(X)
 
@@ -95,17 +98,18 @@ def test_guard_ignora_coluna_bool():
     ("total_acc", 0.0, "total_acc zero -> Inf ou NaN em open_acc_ratio"),
 ])
 def test_guard_pega_o_mecanismo_real_e_nao_so_um_NaN_sintetico(campo, valor, rotulo):
-    """Liga o guard a causa de verdade.
+    """Ties the guard to the real cause.
 
-    O treino tem ZERO linhas nos dois casos (medido: 0 de 172.988), mas o contrato da API
-    aceita os dois hoje, porque usa ge=0. Enquanto o P-047 nao estreitar o contrato, este
-    e o caminho pelo qual Inf entra no modelo em producao."""
+    Training has ZERO rows in either case (measured: 0 of 172,988). The API contract
+    rejects both (annual_inc and total_acc must be > 0), but a batch scored directly --
+    e.g. by the drift monitor -- does not go through it, and that is the path by which
+    Inf would reach the model in production."""
     X = _matriz(dict(BASE, **{campo: valor}))
     with pytest.raises(ValueError):
         assert_matriz_finita(X, rotulo)
 
 
-# ------------------------------------------------------ o guard do lado de serving
+# ------------------------------------------------------------- the serving-side guard
 
 def test_score_de_registro_valido_devolve_probabilidade_finita():
     out = score_frame(pd.DataFrame([BASE]))
@@ -114,11 +118,12 @@ def test_score_de_registro_valido_devolve_probabilidade_finita():
 
 
 def test_score_frame_levanta_se_a_probabilidade_sair_nao_finita():
-    """A unica forma honesta de testar um guard cujo gatilho real e inalcancavel hoje.
+    """The only honest way to test a guard whose real trigger is unreachable today.
 
-    Nao existe entrada conhecida que faca o modelo devolver NaN -- por isso o guard e
-    barato e silencioso. Mas 'nao sei como disparar' nao e prova de que ele funciona, e um
-    guard nunca exercitado e decoracao. O fake abaixo troca so a saida do predict_proba."""
+    No known input makes the model return NaN -- which is why the guard is cheap and
+    silent. But 'I don't know how to trigger it' is no proof that it works, and a guard
+    that is never exercised is decoration. The fake below replaces only predict_proba's
+    output."""
     class _ModeloQueDevolveNaN:
         def __init__(self, real):
             self._real = real
@@ -131,20 +136,20 @@ def test_score_frame_levanta_se_a_probabilidade_sair_nao_finita():
             p[:, 1] = np.nan
             return p
 
-    with pytest.raises(ValueError, match="nao finito"):
+    with pytest.raises(ValueError, match="non-finite"):
         score_frame(pd.DataFrame([BASE]), model=_ModeloQueDevolveNaN(load_model()))
 
 
-# ------------------------------------------------------- o mecanismo do P-046
+# ------------------------------------------ why verify_pipeline checks before reindexing
 
 def test_drop_first_sobre_subconjunto_produz_conjunto_de_colunas_diferente():
-    """Documenta POR QUE o verify_pipeline precisa do guard do P-046.
+    """Documents WHY verify_pipeline checks that the test encoding matches train.
 
-    O reindex la e a mesma construcao que foi o bug P-043 no serving. Hoje e seguro por
-    propriedade do DADO -- o split inteiro tem todas as categorias --, nao do codigo. Este
-    teste mostra a propriedade falhando assim que o frame deixa de cobrir o vocabulario:
-    e o cenario exato que o guard passa a recusar em voz alta, em vez de produzir um
-    profit plausivel e errado."""
+    Its reindex is the same construction that once broke single-record scoring on the
+    serving path. Today it is safe by a property of the DATA -- each full split contains
+    every category -- not of the code. This test shows that property failing as soon as
+    the frame stops covering the vocabulary: exactly the scenario the check refuses
+    loudly, instead of producing a plausible but wrong profit."""
     cols = ["home_ownership"]
     completo = pd.DataFrame({"home_ownership": ["mortgage", "own", "rent"]})
     parcial = pd.DataFrame({"home_ownership": ["own", "rent"]})
@@ -155,5 +160,5 @@ def test_drop_first_sobre_subconjunto_produz_conjunto_de_colunas_diferente():
     assert list(X_completo.columns) == ["home_ownership_own", "home_ownership_rent"]
     assert list(X_parcial.columns) == ["home_ownership_rent"]
     assert set(X_completo.columns) != set(X_parcial.columns), (
-        "se estes conjuntos passarem a ser iguais, o guard do P-046 perdeu o motivo"
+        "if these sets ever become equal, the reindex guard in verify_pipeline has lost its reason"
     )

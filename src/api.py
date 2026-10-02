@@ -1,18 +1,18 @@
 """
 Inference API (FastAPI) for the Lending Club default model.
 
-Task 4.3 of Project 4, Phase 2. Thin shell over src.scoring (pure logic).
+Thin shell over src.scoring (pure logic).
 - Input: raw origination fields. Required = the high-SHAP ones (Model Card
   §8); the rest of the bureau block is optional and, if omitted, falls into the SAME
   sentinel/missingness mechanism as training (FACTS §4) -- not a shortcut, it's the
   project's design. Omitting many fields moves the profile closer to the sentinel regime and
-  should trigger a PSI check (see the drift monitor, task 4.4).
+  should trigger a PSI check (see the drift monitor, src.monitor).
 - term accepts ONLY 36. The model was trained only on 36 months and is declaredly
   not transferable to 60 (scope §9, Model Card §4, README). Accepting 60 would mean
   scoring something the model doesn't know how to score -- the API refuses with a message that
   points to the limitation, enforcing it rather than just describing it.
 - annual_inc and total_acc require > 0, for the SAME reason as term=36 and not a
-  different one (P-047, 2026-08-31). The training split has ZERO rows with either at 0
+  different one. The training split has ZERO rows with either at 0
   (measured: 0 of 172,988), and build_features divides by both -- annual_inc feeds three
   ratios, total_acc feeds open_acc_ratio -- so a 0 produces Inf on a feature the model has
   never seen. XGBoost would still return a well-formed probability, which is the dangerous
@@ -38,7 +38,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from src.scoring import score_frame, load_model, OPERATIONAL_THRESHOLD
 
-# --- contract discovered at runtime (Block 2a) ---
+# --- contract discovered at runtime (read from _api_contract.json) ---
 _CONTRACT = json.loads((Path(__file__).parent / "_api_contract.json").read_text())
 _HOME = _CONTRACT["categories"].get("home_ownership", ["mortgage", "rent", "own", "other"])
 _PURP = _CONTRACT["categories"].get("purpose", ["debt_consolidation", "credit_card", "other"])
@@ -74,7 +74,7 @@ class ScoreRequest(BaseModel):
     loan_amnt: float = Field(..., gt=0, le=100_000, description="Requested amount (USD)")
     installment: float = Field(..., gt=0, le=2_000, description="Monthly installment (USD)")
     term: Literal[36] = Field(..., description="Term in months. Only 36 (model does not serve 60, see Model Card §4)")
-    annual_inc: float = Field(..., gt=0, le=15_000_000, description="Self-reported annual income (USD). Must be > 0: the model has zero training support at 0 (0 of 172,988 rows) and build_features divides by it, producing Inf in three ratios. See P-047.")
+    annual_inc: float = Field(..., gt=0, le=15_000_000, description="Self-reported annual income (USD). Must be > 0: the model has zero training support at 0 (0 of 172,988 rows) and build_features divides by it, producing Inf in three ratios.")
     fico_range_low: float = Field(..., ge=300, le=850, description="Lower FICO bound at origination")
     dti: float = Field(..., ge=0, le=100, description="Debt-to-income (%). >100 is impossible (scope §2)")
     earliest_cr_line: str = Field(..., description="Date of the oldest credit line (YYYY-MM-DD)")
@@ -83,7 +83,7 @@ class ScoreRequest(BaseModel):
     purpose: str = Field(..., description=f"One of: {_PURP}")
     acc_open_past_24mths: float = Field(..., ge=0, le=100)
     open_acc: float = Field(..., ge=0, le=200)
-    total_acc: float = Field(..., gt=0, le=300, description="Total credit lines ever opened. Must be > 0: zero training support (0 of 172,988 rows) and open_acc_ratio divides by it. See P-047.")
+    total_acc: float = Field(..., gt=0, le=300, description="Total credit lines ever opened. Must be > 0: zero training support (0 of 172,988 rows) and open_acc_ratio divides by it.")
     revol_bal: float = Field(..., ge=0, le=10_000_000)
     revol_util: float = Field(..., ge=0, le=250, description="Revolving utilization (%)")
     inq_last_6mths: float = Field(..., ge=0, le=100, description="Credit inquiries in the last 6 months. Required: informative feature, 0 in only 55% of cases; a default value would be wrong in ~1/5 of applications.")

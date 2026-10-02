@@ -1,28 +1,29 @@
 """
-Testes de src/scoring.py -- o caminho de inferencia, contra o modelo real.
+Tests for src/scoring.py -- the inference path, against the real model.
 
-Existem por causa do BUG P-043 (2026-08-30): a API aceitava, validava e IGNORAVA
-home_ownership, purpose, verification_status e initial_list_status, e o mesmo
-candidato recebia score diferente dependendo de quem mais estava no lote.
+They exist because of a regression in which the API accepted, validated and IGNORED
+home_ownership, purpose, verification_status and initial_list_status, and the same
+applicant got a different score depending on who else was in the batch (one-hot
+encoding with drop_first=True at inference).
 
-Por que nenhuma rede existente pegou, e por que estes testes sao a rede certa:
-  - verify_pipeline.py roda com train/test INTEIROS -- todas as categorias presentes,
-    encoding correto, profit reproduz ao centavo. Nao ve o bug.
-  - o smoke test do CI confere que a resposta tem probability_default e decision.
-    Ambos existiam. A resposta era sintaticamente perfeita e semanticamente errada.
-  - test_api.py::test_score_valid_is_coherent confere faixa 0<=p<=1 e coerencia
-    decisao<->threshold. Ambas continuavam validas.
+Why no existing safety net caught it, and why these tests are the right one:
+  - verify_pipeline.py runs on the WHOLE train/test splits -- every category present,
+    correct encoding, profit reproduced to the cent. It does not see the bug.
+  - the CI smoke test checks that the response has probability_default and decision.
+    Both were there. The response was syntactically perfect and semantically wrong.
+  - test_api.py::test_score_valid_is_coherent checks the range 0<=p<=1 and that the
+    decision agrees with the threshold. Both still held.
 
-Nenhum deles testava SENSIBILIDADE: que mudar uma feature mude o score. Esse e o unico
-teste que pega esta classe de bug, porque o modo de falha produz um valor legal.
+None of them tested SENSITIVITY: that changing a feature changes the score. That is the
+only test that catches this class of bug, because the failure mode produces a legal value.
 
-Nao precisam de parquet: score_frame depende so de models/xgb_final.joblib e de
-src/_cleaning_stats.json, ambos versionados.
+Needs no parquet: score_frame depends only on models/xgb_final.joblib and
+src/_cleaning_stats.json, both versioned.
 
-Categoria desconhecida continua sendo pontuada em silencio como a categoria-base. Isso
-NAO foi resolvido aqui, e o motivo esta em test_categoria_base_e_indistinguivel_de_
-desconhecida_no_artefato: os dois casos sao indistinguiveis a partir do .joblib.
-Rastreado em P-044.
+An unknown category is still scored as the base category. That is NOT solved here, and
+the reason is in test_categoria_base_e_indistinguivel_de_
+desconhecida_no_artefato: the two cases are indistinguishable from the .joblib alone.
+Telling them apart takes the frozen training vocabulary (scoring._training_vocabulary).
 """
 import pandas as pd
 import pytest
@@ -46,7 +47,7 @@ def _p(rec: dict) -> float:
     return float(score_frame(pd.DataFrame([rec]))["probability_default"].iloc[0])
 
 
-# --- sensibilidade: o teste que faltava ---
+# --- sensitivity: the missing test ---
 
 @pytest.mark.parametrize("campo,a,b", [
     ("home_ownership", "rent", "own"),
@@ -55,25 +56,25 @@ def _p(rec: dict) -> float:
     ("initial_list_status", "w", "f"),
 ])
 def test_feature_categorica_afeta_o_score(campo, a, b):
-    """Mudar a categorica, com todo o resto igual, TEM que mudar a probabilidade.
+    """Changing the categorical, with everything else equal, MUST change the probability.
 
-    Antes do P-043 os quatro campos davam spread=0.0000000000 -- p=0.1341794431 para
-    qualquer valor. Se este teste voltar a falhar, o encoding de inferencia regrediu."""
+    Before the encoding fix all four fields gave spread=0.0000000000 -- p=0.1341794431 for
+    any value. If this test fails again, the inference encoding has regressed."""
     ra = dict(BASE); ra[campo] = a
     rb = dict(BASE); rb[campo] = b
     assert _p(ra) != _p(rb), (
-        f"{campo} nao afeta o score: '{a}' e '{b}' dao a mesma probabilidade. "
-        "E o sintoma do P-043."
+        f"{campo} does not affect the score: '{a}' and '{b}' give the same probability. "
+        "That is the symptom of the batch-dependent encoding bug."
     )
 
 
-# --- independencia de linha ---
+# --- row independence ---
 
 def test_score_de_um_registro_independe_do_lote():
-    """O score de uma linha nao pode depender das outras linhas do frame.
+    """A row's score must not depend on the other rows in the frame.
 
-    Antes do P-043: 0.1341794431 sozinho vs 0.1289446801 em lote (diferenca de
-    0.0052347630). Um candidato recebia decisao diferente conforme a companhia."""
+    Before the encoding fix: 0.1341794431 alone vs 0.1289446801 in a batch (a difference
+    of 0.0052347630). An applicant got a different decision depending on the company."""
     outro = dict(BASE)
     outro.update(home_ownership="own", purpose="medical",
                  initial_list_status="f", verification_status="not verified")
@@ -88,11 +89,11 @@ def test_score_de_um_registro_independe_do_lote():
 
 
 def test_lote_inteiro_bate_linha_a_linha():
-    """Analogo offline do item Monitor 3 do ML Test Score (train/serving skew).
+    """Offline analogue of ML Test Score item Monitor 3 (train/serving skew).
 
-    Pontuar N registros de uma vez tem que dar exatamente o mesmo que pontuar cada um
-    sozinho. E a forma geral do teste acima, e o guard de qualquer regressao futura
-    que faca o encoding depender do conteudo do lote."""
+    Scoring N records at once must give exactly the same as scoring each one alone.
+    It is the general form of the test above, and the guard against any future
+    regression that makes the encoding depend on the batch's contents."""
     variantes = []
     for ho in ("rent", "own", "mortgage", "other"):
         for pu in ("debt_consolidation", "medical", "car"):
@@ -104,40 +105,40 @@ def test_lote_inteiro_bate_linha_a_linha():
     assert em_lote == um_a_um
 
 
-# --- categoria desconhecida: lacuna conhecida, documentada, NAO resolvida ---
+# --- unknown category: known, documented gap, NOT solved ---
 
 def test_categoria_desconhecida_pontua_como_categoria_base():
-    """LACUNA CONHECIDA (P-044), nao um comportamento desejado.
+    """KNOWN GAP, not desired behaviour.
 
-    Uma categoria nunca vista no treino encoda como todas-as-dummies-zero, ou seja, e
-    pontuada como a categoria-base -- em silencio. E o comportamento do
-    OneHotEncoder(handle_unknown='ignore') do scikit-learn, cujo default e 'error'
-    justamente porque silencio e perigoso.
+    A category never seen in training encodes as all-dummies-zero, i.e. it is scored as
+    the base category -- silently. That is scikit-learn's
+    OneHotEncoder(handle_unknown='ignore') behaviour, whose default is 'error'
+    precisely because silence is dangerous.
 
-    Por que nao ha aviso: 'categoria desconhecida' e 'categoria-base' sao
-    INDISTINGUIVEIS a partir do artefato. A base tambem nao tem coluna (drop_first a
-    removeu no treino). Uma primeira tentativa de aviso foi escrita e removida em
-    2026-08-30 porque disparava em TODA requisicao -- application_type tem ZERO colunas
-    treinadas, entao seu unico valor legitimo ('individual') era sinalizado como
-    desconhecido. Distinguir exige o vocabulario de treino congelado em disco, do jeito
-    que _cleaning_stats.json ja congela as medianas. Rastreado em P-044.
+    Why the artifact cannot warn: 'unknown category' and 'base category' are
+    INDISTINGUISHABLE from it. The base has no column either (drop_first removed it at
+    training time). A first attempt at a warning was written and removed because it
+    fired on EVERY request -- application_type had ZERO trained columns, so its only
+    legitimate value ('individual') was flagged as unknown. Telling them apart requires
+    the training vocabulary frozen to disk, the way _cleaning_stats.json already freezes
+    the medians -- see scoring._training_vocabulary().
 
-    Este teste existe para que a lacuna seja EXPLICITA e para quebrar se alguem mudar o
-    comportamento sem atualizar a decisao."""
+    This test exists so the gap is EXPLICIT, and to break if someone changes the
+    behaviour without revisiting the decision."""
     desconhecida = dict(BASE); desconhecida["home_ownership"] = "categoria_inexistente"
-    base = dict(BASE); base["home_ownership"] = "mortgage"  # a categoria-base real
+    base = dict(BASE); base["home_ownership"] = "mortgage"  # the real base category
 
     assert _p(desconhecida) == _p(base)
 
 
 def test_categoria_base_e_indistinguivel_de_desconhecida_no_artefato():
-    """O fato estrutural que justifica P-044, como teste em vez de comentario.
+    """The structural fact behind the unknown-category gap, as a test instead of a comment.
 
-    As colunas treinadas nao contem a categoria-base de nenhuma coluna categorica.
-    application_type e o caso extremo: ZERO colunas treinadas, porque no treino havia
-    um valor so e drop_first o eliminou. Logo 'individual' -- valor legitimo, presente
-    em todo registro -- nao aparece na lista treinada, exatamente como um valor
-    inventado nao apareceria."""
+    The trained columns do not contain the base category of any categorical column.
+    application_type is the extreme case: ZERO trained columns, because training had a
+    single value and drop_first eliminated it. So 'individual' -- a legitimate value,
+    present in every record -- does not appear in the trained list, exactly as an
+    invented value would not."""
     from src.scoring import load_model, _trained_columns
     treinadas = _trained_columns(load_model())
 
@@ -149,7 +150,7 @@ def test_categoria_base_e_indistinguivel_de_desconhecida_no_artefato():
     )
 
 
-# --- sanidade basica do contrato ---
+# --- basic contract sanity ---
 
 def test_score_e_deterministico():
     assert _p(BASE) == _p(BASE)

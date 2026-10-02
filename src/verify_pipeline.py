@@ -17,7 +17,7 @@ def main():
     train = load_split("train")
     train_feat = build_features(train)
     X_train = prepare_X(train_feat, FEATURE_SET, CATEGORICAL_COLS)
-    assert_matriz_finita(X_train, "train")   # P-011
+    assert_matriz_finita(X_train, "train")   # fail loudly on NaN/Inf
     y_train = train_feat["target"].values
 
     model = build_xgb_final()
@@ -27,27 +27,27 @@ def main():
     test_feat = build_features(test)
     X_test = prepare_X(test_feat, FEATURE_SET, CATEGORICAL_COLS)
 
-    # P-046: este reindex e a MESMA construcao que foi o bug P-043 no caminho de serving
-    # (drop_first=True + reindex com fill_value que coincide com um valor legitimo). Aqui
-    # ele e seguro -- mas por propriedade do DADO, nao do codigo: o split inteiro contem
-    # todas as categorias, entao get_dummies escolhe a mesma base dos dois lados e o
-    # reindex nao acrescenta nem descarta nada. Medido em 2026-08-31: 0 colunas ausentes,
-    # 0 descartadas. As duas linhas abaixo travam essa propriedade em vez de confiar nela;
-    # se alguem rodar isto sobre um subconjunto, quebra alto em vez de produzir um profit
-    # plausivel e errado.
+    # This reindex is the SAME construction that once broke single-record scoring on the
+    # serving path (drop_first=True + reindex with a fill_value that coincides with a
+    # legitimate value). Here it is safe -- but by a property of the DATA, not of the
+    # code: each full split contains every category, so get_dummies picks the same base
+    # on both sides and the reindex adds or drops nothing. Measured on 2026-08-31: 0
+    # columns missing, 0 dropped. The check below enforces that property instead of
+    # trusting it; if someone runs this on a subset, it fails loudly instead of
+    # producing a plausible but wrong profit.
     _faltando = [c for c in X_train.columns if c not in X_test.columns]
     _sobrando = [c for c in X_test.columns if c not in X_train.columns]
     if _faltando or _sobrando:
         raise RuntimeError(
-            f"Encoding de test divergiu do de train antes do reindex. "
-            f"Ausentes em test (o reindex inventaria com 0): {_faltando}; "
-            f"presentes so em test (o reindex descartaria): {_sobrando}. "
-            "Rodar sobre um subconjunto que nao contenha todas as categorias produz "
-            "exatamente isto. Ver P-046 e P-043."
+            f"Test encoding diverged from train before the reindex. "
+            f"Missing in test (the reindex would invent them as 0): {_faltando}; "
+            f"present only in test (the reindex would drop them): {_sobrando}. "
+            "Running on a subset that does not contain every category produces "
+            "exactly this."
         )
 
     X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
-    assert_matriz_finita(X_test, "test")   # P-011
+    assert_matriz_finita(X_test, "test")   # fail loudly on NaN/Inf
     y_test = test_feat["target"].values
 
     interest_test, loss_test = compute_interest_loss(test_feat)

@@ -1,25 +1,25 @@
 """
-Smoke test rapido da pipeline inteira (P-010 / ML Test Score Infra 3).
+Fast smoke test of the whole pipeline (ML Test Score, Infra 3).
 
-O que faltava, e por que os testes existentes nao cobriam: run_all.py e
-verify_pipeline SAO teste de integracao ponta a ponta, mas sao manuais, ficam fora
-do CI e exigem os parquets (gitignored). Ou seja: a integracao so era exercitada
-quando alguem lembrava, numa maquina que tivesse o dado.
+What was missing, and why the existing tests did not cover it: run_all.py and
+verify_pipeline ARE end-to-end integration tests, but they are manual, sit outside
+CI and need the parquets (gitignored). So integration was only exercised when
+someone remembered, on a machine that had the data.
 
-Este arquivo roda em SEGUNDOS, sem parquet, dentro do CI, e cobre as duas coisas
-que quebram calado numa refatoracao:
+This file runs in SECONDS, without parquet, inside CI, and covers the two things
+that break silently in a refactor:
 
-  1. o GRAFO DE IMPORTS de src/ -- um import circular ou um simbolo renomeado
-     derruba a pipeline inteira e nenhum teste de unidade percebe, porque cada um
-     importa so o proprio modulo;
-  2. o CAMINHO DE FEATURE DE TREINO ponta a ponta, com um fit de verdade sobre dado
-     sintetico -- clean_record -> build_features -> prepare_X -> fit -> predict.
-     Nao verifica NUMERO (isso e o verify_pipeline com o dado real); verifica que as
-     interfaces entre os quatro passos continuam se encaixando.
+  1. the IMPORT GRAPH of src/ -- a circular import or a renamed symbol takes down
+     the whole pipeline and no unit test notices, because each one imports only
+     its own module;
+  2. the TRAINING FEATURE PATH end to end, with a real fit on synthetic data --
+     clean_record -> build_features -> prepare_X -> fit -> predict.
+     It does not check NUMBERS (that is verify_pipeline with the real data); it checks
+     that the interfaces between the four steps still fit together.
 
-A divisao de trabalho e deliberada: este teste responde "a pipeline monta?" em
-segundos e em toda push; o verify_pipeline responde "a pipeline reproduz o numero?"
-com o dado real, quando o Pavan roda.
+The split of work is deliberate: this test answers "does the pipeline assemble?" in
+seconds and on every push; verify_pipeline answers "does the pipeline reproduce the
+number?" with the real data, when run manually.
 """
 import importlib
 import time
@@ -49,14 +49,14 @@ BASE = {
 
 @pytest.mark.parametrize("mod", MODULOS)
 def test_todo_modulo_de_src_importa(mod):
-    """Import circular ou simbolo renomeado derruba a pipeline e nenhum teste de
-    unidade percebe -- cada um importa so o proprio modulo."""
+    """A circular import or a renamed symbol takes down the pipeline and no unit test
+    notices -- each one imports only its own module."""
     importlib.import_module(mod)
 
 
 def _amostra(n=200, seed=0):
-    """Dado sintetico com as colunas cruas que a pipeline exige. Os valores nao
-    precisam ser realistas: o teste e de encaixe de interface, nao de numero."""
+    """Synthetic data with the raw columns the pipeline requires. The values need not
+    be realistic: the test is about interfaces fitting together, not about numbers."""
     rng = np.random.RandomState(seed)
     linhas = []
     for i in range(n):
@@ -81,15 +81,15 @@ def _amostra(n=200, seed=0):
 
 
 def test_caminho_de_treino_monta_ponta_a_ponta():
-    """clean_record -> build_features -> prepare_X -> fit -> predict, com fit de
-    verdade. Nao afere numero; afere que os quatro passos continuam se encaixando.
+    """clean_record -> build_features -> prepare_X -> fit -> predict, with a real
+    fit. Does not measure numbers; checks that the four steps still fit together.
 
-    Usa um XGBClassifier pequeno de proposito, e NAO o build_xgb_final: o objetivo e
-    velocidade e independencia da configuracao congelada, nao reproduzir resultado."""
+    Uses a small XGBClassifier on purpose, NOT build_xgb_final: the goal is speed and
+    independence from the frozen configuration, not reproducing a result."""
     from xgboost import XGBClassifier
 
     df = _amostra()
-    y = (np.arange(len(df)) % 5 == 0).astype(int)   # alvo sintetico, 20% de positivos
+    y = (np.arange(len(df)) % 5 == 0).astype(int)   # synthetic target, 20% positives
 
     X = prepare_X(build_features(clean_record(df)), FEATURE_SET, CATEGORICAL_COLS)
     assert len(X) == len(df)
@@ -103,7 +103,7 @@ def test_caminho_de_treino_monta_ponta_a_ponta():
 
 
 def test_caminho_de_serving_monta_ponta_a_ponta():
-    """A outra metade: do registro cru ate a decisao, pelo artefato de verdade."""
+    """The other half: from the raw record to the decision, through the real artifact."""
     out = score_frame(_amostra(n=20))
     assert list(out.columns) == ["probability_default", "decision"]
     assert len(out) == 20
@@ -112,10 +112,10 @@ def test_caminho_de_serving_monta_ponta_a_ponta():
 
 
 def test_o_smoke_test_e_rapido_de_verdade():
-    """Um smoke test lento deixa de ser rodado, e ai nao e smoke test.
+    """A slow smoke test stops being run, and then it is not a smoke test.
 
-    O limite e generoso (10s) porque maquina de CI varia; o ponto e travar uma ordem
-    de grandeza, nao cronometrar."""
+    The limit is generous (10s) because CI machines vary; the point is to pin an order
+    of magnitude, not to benchmark."""
     t0 = time.perf_counter()
     score_frame(_amostra(n=50))
     assert time.perf_counter() - t0 < 10.0

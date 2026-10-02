@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       batch_path:
-        description: "Caminho (dentro do checkout) para um CSV/parquet com um lote real de registros pra checar drift."
+        description: "Path (inside the checkout) to a CSV/parquet with a real batch of records to check for drift."
         required: true
         type: string
 
@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies (lean API deps ja cobrem o que monitor.py importa)
+      - name: Install dependencies (the lean API deps cover what monitor.py imports)
         run: pip install --no-cache-dir -r requirements-api.txt
 
       - name: Run drift monitor

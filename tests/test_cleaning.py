@@ -1,29 +1,29 @@
 """
-Testes de src/cleaning.py -- o ultimo modulo do caminho de serving sem rede.
+Tests for src/cleaning.py -- the last module on the network-free serving path.
 
-Fecha a outra metade do P-042. features.py ganhou 20 testes no P-043; cleaning.py
-continuava com ZERO, e ele roda em TODA requisicao: score_frame chama clean_record antes
-de build_features, aplicando sentinelas, flags e medianas congeladas.
+cleaning.py runs on EVERY request: score_frame calls clean_record before build_features,
+applying the frozen sentinels, flags and medians. A bug here reaches every score.
 
-O que cada grupo protege, em ordem de gravidade:
+What each group guards, in order of severity:
 
-  1. INDEPENDENCIA DE LOTE. E a propriedade que o P-043 violou na funcao vizinha. Aqui
-     ela deveria valer por construcao -- tudo e por linha ou vem do JSON congelado -- mas
-     "deveria valer por construcao" foi exatamente o que eu escrevi sobre prepare_X no
-     P-013, um item antes de achar o P-043. Agora e assert.
+  1. BATCH INDEPENDENCE. The property that once broke in prepare_X, the neighbouring
+     function. Here it should hold by construction -- everything is row-wise or comes
+     from the frozen JSON -- but "should hold by construction" is exactly what was once
+     said of prepare_X, shortly before it turned out to be batch-dependent. So it is
+     asserted here.
 
-  2. MEDIANA LIDA, NUNCA RECALCULADA. O docstring do modulo chama isso de "a classe de
-     erro que este projeto evita": recalcular a mediana a partir do lote faz a imputacao
-     de serving divergir da de treino. O teste passa lotes com distribuicoes diferentes e
-     exige o MESMO valor imputado.
+  2. MEDIAN READ, NEVER RECOMPUTED. The module docstring calls this "the class of error
+     this project avoids": recomputing the median from the batch makes serving-time
+     imputation diverge from training. The test feeds batches with different
+     distributions and requires the SAME imputed value.
 
-  3. FLAG ANTES DO PREENCHIMENTO. A ordem importa e e facil de inverter numa refatoracao:
-     se alguem preencher a origem antes de calcular a flag, a flag vira 0 para todo mundo
-     e a informacao de ausencia -- que e MNAR e o projeto trata como informativa --
-     desaparece em silencio, sem quebrar nada.
+  3. FLAG BEFORE FILL. The order matters and is easy to invert in a refactor: if someone
+     fills the source before computing the flag, the flag becomes 0 for everyone and the
+     missingness signal -- MNAR, treated as informative by this project -- disappears
+     silently, without breaking anything.
 
-Nao precisa de parquet nem de modelo: cleaning.py depende so de src/_cleaning_stats.json,
-que e versionado.
+Needs no parquet and no model: cleaning.py depends only on src/_cleaning_stats.json,
+which is versioned.
 """
 import json
 from pathlib import Path
@@ -55,15 +55,15 @@ MINIMO = {
 }
 
 
-# ------------------------------------------------- 1. independencia de lote (a grave)
+# ------------------------------------------------ 1. batch independence (the serious one)
 
 def test_registro_sozinho_e_em_lote_produzem_a_mesma_linha():
-    """A propriedade que o P-043 violou na funcao vizinha.
+    """The property that once broke in the neighbouring prepare_X.
 
-    Se um dia alguem trocar uma mediana congelada por `df[c].median()`, ou uma flag por
-    algo que olhe o lote, este teste quebra. Sem ele, a quebra sairia como um score
-    ligeiramente diferente conforme a companhia -- que foi exatamente o modo de falha do
-    P-043, e ninguem percebe olhando a resposta."""
+    If someone ever swaps a frozen median for `df[c].median()`, or a flag for something
+    that looks at the batch, this test breaks. Without it, the failure would show up as a
+    slightly different score depending on the company a record keeps -- the same failure
+    mode as the batch-dependent encoding bug, and nobody notices it from the response."""
     a = dict(MINIMO)
     b = dict(MINIMO, annual_inc=20000.0, revol_util=90.0, dti=44.0, open_acc=2.0)
 
@@ -78,8 +78,8 @@ def test_registro_sozinho_e_em_lote_produzem_a_mesma_linha():
 
 
 def test_a_ordem_das_linhas_no_lote_nao_muda_nenhuma_delas():
-    """Complemento do anterior: nao basta ser igual sozinho, tem que ser igual em
-    qualquer posicao."""
+    """Complements the previous test: being equal alone is not enough, a row must be
+    equal in any position."""
     a = dict(MINIMO)
     b = dict(MINIMO, annual_inc=20000.0, dti=44.0)
 
@@ -92,13 +92,13 @@ def test_a_ordem_das_linhas_no_lote_nao_muda_nenhuma_delas():
     )
 
 
-# ---------------------------------------- 2. mediana congelada, nunca recalculada
+# ------------------------------------------------ 2. frozen median, never recomputed
 
 def test_mediana_imputada_nao_depende_do_lote():
-    """"A classe de erro que este projeto evita", nas palavras do proprio docstring.
+    """"The class of error this project avoids", in the module docstring's own words.
 
-    Dois lotes com distribuicoes deliberadamente opostas na mesma coluna. Se a mediana
-    viesse do lote, os dois valores imputados seriam diferentes."""
+    Two batches with deliberately opposite distributions in the same column. If the
+    median came from the batch, the two imputed values would differ."""
     baixo = [dict(MINIMO, revol_util=v) for v in (1.0, 2.0, 3.0)]
     alto = [dict(MINIMO, revol_util=v) for v in (95.0, 96.0, 97.0)]
     faltante = dict(MINIMO, revol_util=np.nan)
@@ -110,26 +110,26 @@ def test_mediana_imputada_nao_depende_do_lote():
 
 
 def test_o_valor_imputado_e_exatamente_o_do_json_congelado():
-    """Nao basta ser estavel -- tem que ser o numero do treino."""
+    """Being stable is not enough -- it has to be the training number."""
     stats = json.loads(
         (Path(cleaning.__file__).parent / "_cleaning_stats.json").read_text()
     )["sparse_medians"]
 
-    df = clean_record(pd.DataFrame([dict(MINIMO)]))  # nenhuma sparse informada
+    df = clean_record(pd.DataFrame([dict(MINIMO)]))  # no sparse column provided
     for c in SPARSE_COLS:
         assert df[c].iloc[0] == stats[c], f"{c}: {df[c].iloc[0]} != {stats[c]}"
 
 
-# ------------------------------------------- 3. flag calculada ANTES do preenchimento
+# ------------------------------------------------- 3. flag computed BEFORE the fill
 
 @pytest.mark.parametrize("origem,flag", sorted(
     {**SENTINEL_999_WITH_FLAG, **SENTINEL_NEG1_WITH_FLAG}.items()
 ))
 def test_coluna_ausente_marca_a_flag_e_recebe_a_sentinela(origem, flag):
-    """A ordem: a flag e calculada antes de a origem ser preenchida.
+    """The order: the flag is computed before the source is filled.
 
-    Se alguem inverter numa refatoracao, a flag vira 0 para todo mundo e a ausencia --
-    que aqui e MNAR e informativa -- some sem quebrar nada."""
+    If a refactor inverts it, the flag becomes 0 for everyone and the missingness --
+    MNAR and informative here -- disappears without breaking anything."""
     df = clean_record(pd.DataFrame([dict(MINIMO)]))
     assert df[flag].iloc[0] == 1, f"{flag} deveria marcar ausencia"
     assert df[origem].notna().iloc[0], f"{origem} deveria ter recebido sentinela"
@@ -139,7 +139,7 @@ def test_coluna_ausente_marca_a_flag_e_recebe_a_sentinela(origem, flag):
     {**SENTINEL_999_WITH_FLAG, **SENTINEL_NEG1_WITH_FLAG}.items()
 ))
 def test_coluna_nula_tambem_marca_a_flag(origem, flag):
-    """Presente-mas-nula tem que ser tratada como ausente. Duas portas, um resultado."""
+    """Present-but-null must be treated as absent. Two doors, one result."""
     df = clean_record(pd.DataFrame([dict(MINIMO, **{origem: np.nan})]))
     assert df[flag].iloc[0] == 1
 
@@ -148,17 +148,18 @@ def test_coluna_nula_tambem_marca_a_flag(origem, flag):
     {**SENTINEL_999_WITH_FLAG, **SENTINEL_NEG1_WITH_FLAG}.items()
 ))
 def test_valor_presente_nao_marca_a_flag_nem_e_sobrescrito(origem, flag):
-    """§12.2 aplicada a uma flag: no caminho normal ela tem que ficar quieta.
+    """A flag, like a guard, must stay quiet on the normal path.
 
-    E o valor informado nao pode ser trocado pela sentinela -- seria perder dado real."""
+    And the provided value must not be replaced by the sentinel -- that would lose real
+    data."""
     df = clean_record(pd.DataFrame([dict(MINIMO, **{origem: 7.0})]))
     assert df[flag].iloc[0] == 0
     assert df[origem].iloc[0] == 7.0
 
 
 def test_sentinela_999_e_neg1_vao_para_as_colunas_certas():
-    """As duas tabelas de decisao nao podem trocar de lugar: 999 preserva a ordenacao
-    'maior = mais seguro'; -1 e para contadores, onde essa ordenacao nao existe."""
+    """The two decision tables must not swap places: 999 preserves the 'higher = safer'
+    ordering; -1 is for counters, where that ordering does not exist."""
     df = clean_record(pd.DataFrame([dict(MINIMO)]))
     for c in list(SENTINEL_999_WITH_FLAG) + SENTINEL_999_ROLLOUT:
         assert df[c].iloc[0] == 999.0, f"{c} deveria ser 999"
@@ -166,7 +167,7 @@ def test_sentinela_999_e_neg1_vao_para_as_colunas_certas():
         assert df[c].iloc[0] == -1.0, f"{c} deveria ser -1"
 
 
-# ----------------------------------------------------------- flag agregada e derivadas
+# --------------------------------------------------------- aggregated flag and derived
 
 def test_sparse_bureau_missing_e_um_OU_sobre_as_seis():
     todas = {c: 1.0 for c in SPARSE_COLS}
@@ -197,13 +198,13 @@ def test_funded_amnt_informado_nao_e_sobrescrito():
 
 @pytest.mark.parametrize("coluna", ["acc_now_delinq", "delinq_amnt", "delinq_2yrs", "pub_rec"])
 def test_contadores_de_evento_raro_caem_para_zero(coluna):
-    """Ausencia de evento = 0 e o significado do campo, nao um chute -- e a justificativa
-    esta escrita no proprio cleaning.py."""
+    """Absence of event = 0 is the field's meaning, not a guess -- and the justification
+    is written in cleaning.py itself."""
     df = clean_record(pd.DataFrame([dict(MINIMO)]))
     assert df[coluna].iloc[0] == 0.0
 
 
-# --------------------------------------------------------------- contrato da funcao
+# ------------------------------------------------------------------ function contract
 
 def test_nao_muta_o_dataframe_de_entrada():
     entrada = pd.DataFrame([dict(MINIMO)])
@@ -223,8 +224,8 @@ def test_aceita_dict_e_dataframe_com_o_mesmo_resultado():
 
 
 def test_e_idempotente():
-    """score_frame chama clean_record em toda requisicao, e o monitor de drift pode
-    receber lote ja limpo. Passar duas vezes nao pode mudar nada."""
+    """score_frame calls clean_record on every request, and the drift monitor may receive
+    an already-clean batch. Running it twice must change nothing."""
     uma = clean_record(pd.DataFrame([dict(MINIMO)]))
     duas = clean_record(uma)
     colunas = sorted(uma.columns)
@@ -232,9 +233,9 @@ def test_e_idempotente():
 
 
 def test_coercao_numerica_nao_toca_categorica_nem_data():
-    """A coercao defensiva do passo 9 existe porque um Optional omitido chega como None e
-    o pandas cria coluna 'object', que o XGBoost recusa. Ela nao pode passar por cima das
-    categoricas nem das datas -- build_features e prepare_X usam .dt nessas duas."""
+    """Step 9's defensive coercion exists because an omitted Optional arrives as None and
+    pandas creates an 'object' column, which XGBoost rejects. It must not run over the
+    categorical or date columns -- build_features and prepare_X use .dt on the dates."""
     df = clean_record(pd.DataFrame([dict(MINIMO)]))
     assert df["home_ownership"].iloc[0] == "rent"
     assert df["purpose"].iloc[0] == "debt_consolidation"
@@ -243,21 +244,21 @@ def test_coercao_numerica_nao_toca_categorica_nem_data():
 
 
 def test_a_condicao_do_passo_9_nao_pode_ser_dtype_igual_object():
-    """GUARD do P-048, e a razao de ele existir como teste separado.
+    """Regression guard for the pandas >= 3.0 string dtype, and why it is a separate test.
 
-    A condicao original era `df[c].dtype == object`. Estava CERTA quando foi escrita e
-    ficou errada sozinha: no pandas >= 3.0 uma coluna de strings recebe a StringDtype
-    dedicada (imprime como `str`), nao object -- entao a comparacao dava False e a coercao
-    nunca rodava justamente no caso para o qual ela existe. Reproduzido no pandas 3.0.2.
+    The original condition was `df[c].dtype == object`. It was CORRECT when written and
+    became wrong on its own: under pandas >= 3.0 a column of strings gets the dedicated
+    StringDtype (prints as `str`), not object -- so the comparison was False and the
+    coercion never ran for exactly the case it existed for. Reproduced on pandas 3.0.2.
 
-    Este teste nao olha o codigo; olha o COMPORTAMENTO sob a dtype nova. Se alguem voltar a
-    condicao para `== object`, ele quebra.
+    This test does not look at the code; it looks at the BEHAVIOUR under the new dtype. If
+    someone reverts the condition to `== object`, it breaks.
 
-    Licao transferivel, e e diferente das outras tres da familia do §16: ali o contrato
-    prometia algo que o codigo nao fazia. Aqui o codigo fazia, e parou de fazer porque uma
-    DEPENDENCIA mudou embaixo dele. Proteger contra isso exige teste de comportamento, nao
-    revisao de codigo -- revisao nenhuma pega isso, porque no dia em que foi escrito estava
-    certo."""
+    Transferable lesson, and a different one from the usual contract bug, where the
+    contract promised something the code never did. Here the code did it, and stopped
+    because a DEPENDENCY changed underneath it. Guarding against that takes a behaviour
+    test, not code review -- no review catches it, because on the day it was written it
+    was right."""
     entrada = pd.DataFrame([dict(MINIMO, revol_bal="8500")])
     assert entrada["revol_bal"].dtype != object, (
         "pandas antigo: este teste perde o sentido, mas nao fica errado"
@@ -273,12 +274,12 @@ def test_coluna_numerica_que_chega_como_texto_vira_numero():
 
 
 def test_valor_numerico_impossivel_vira_NaN_em_vez_de_explodir():
-    """errors='coerce': entrada suja vira NaN (erro limpo mais adiante) em vez de 500."""
+    """errors='coerce': dirty input becomes NaN (a clean error later) instead of a 500."""
     df = clean_record(pd.DataFrame([dict(MINIMO, revol_bal="oito mil")]))
     assert pd.isna(df["revol_bal"].iloc[0])
 
 
-# ------------------------------------------------------ 4. emp_length -> anos (P-049)
+# ------------------------------------------------------------- 4. emp_length -> years
 
 BRUTOS_DO_TREINO = [
     ("< 1 year", 0.0), ("1 year", 1.0), ("2 years", 2.0), ("3 years", 3.0),
@@ -289,19 +290,19 @@ BRUTOS_DO_TREINO = [
 
 @pytest.mark.parametrize("bruto,esperado", BRUTOS_DO_TREINO)
 def test_parse_emp_length_reproduz_a_convencao_do_notebook_02(bruto, esperado):
-    """Os 11 valores brutos que existem no dado, com o numero que o treino produziu.
+    """The 11 raw values that exist in the data, with the number training produced.
 
-    Lista tirada da saida impressa no proprio notebook 02. Qualquer divergencia aqui e
-    skew treino/serving -- o modelo foi treinado nesta escala e nao em outra."""
+    List taken from the printed output of notebook 02 itself. Any divergence here is
+    train/serve skew -- the model was trained on this scale and no other."""
     assert cleaning.parse_emp_length(bruto) == esperado
 
 
 def test_menos_de_um_ano_vira_zero_e_nao_um():
-    """O ramo que carrega a funcao inteira.
+    """The branch that carries the whole function.
 
-    A extracao de digitos de '< 1 year' daria 1.0, que e a resposta ERRADA e parece certa:
-    um candidato com menos de um ano de emprego seria pontuado como tendo um ano. Por isso
-    o ramo explicito existe e tem que ficar ACIMA do caminho dos digitos."""
+    Digit extraction on '< 1 year' would give 1.0, which is the WRONG answer and looks
+    right: an applicant with less than a year of employment would be scored as having
+    one. That is why the explicit branch exists and must stay ABOVE the digit path."""
     assert cleaning.parse_emp_length("< 1 year") == 0.0
 
 
@@ -311,34 +312,34 @@ def test_valor_que_nao_da_pra_ler_vira_ausencia_e_nao_chute(lixo):
 
 
 def test_REGRESSAO_informar_emp_length_desliga_a_flag_de_ausente(): 
-    """GUARD do P-049, e e o teste que descreve o bug.
+    """Regression guard for the unconverted emp_length, and the test that describes the bug.
 
-    Antes: a API mandava emp_length='10+ years', nada convertia, emp_length_anos nunca
-    chegava ao frame, o passo 1 marcava ausente e o passo 4 sentinelava -1. TODA
-    requisicao era pontuada como 'tempo de emprego desconhecido' -- numa feature de rank
-    26/88 por weight. No treino so 4,355% das linhas sao ausentes; no serving eram 100%."""
+    Before: the API sent emp_length='10+ years', nothing converted it, emp_length_anos never
+    reached the frame, step 1 flagged it missing and step 4 sentinelled it to -1. EVERY
+    request was scored as 'employment length unknown' -- on a feature ranked 26th of 88
+    by weight. In training only 4.355% of rows are missing; in serving it was 100%."""
     df = clean_record(pd.DataFrame([dict(MINIMO, emp_length="10+ years")]))
     assert df["emp_length_anos"].iloc[0] == 10.0
     assert df["emp_length_missing"].iloc[0] == 0
 
 
 def test_sem_emp_length_continua_ausente_com_sentinela():
-    """A outra metade: quem NAO informa tem que continuar caindo no -1 + flag, que e
-    exatamente o que o treino faz com 4,355% das linhas."""
+    """The other side: a request that does NOT send it must still fall into -1 + flag,
+    which is exactly what training does with 4.355% of rows."""
     df = clean_record(pd.DataFrame([dict(MINIMO)]))
     assert df["emp_length_anos"].iloc[0] == -1.0
     assert df["emp_length_missing"].iloc[0] == 1
 
 
 def test_emp_length_anos_ja_presente_nao_e_sobrescrito():
-    """Caminho do parquet: o split ja traz emp_length_anos e nao traz emp_length."""
+    """Parquet path: the split already carries emp_length_anos and not emp_length."""
     df = clean_record(pd.DataFrame([dict(MINIMO, emp_length_anos=7.0, emp_length="2 years")]))
     assert df["emp_length_anos"].iloc[0] == 7.0
 
 
 def test_a_derivacao_acontece_ANTES_da_flag():
-    """A ordem e o item. Derivar depois do passo 1 marcaria como ausente um valor que
-    acabou de ser calculado -- o mesmo bug, uma linha adiante. Este teste quebra se
-    alguem mover o passo 0 para baixo."""
+    """Order is the point. Deriving after step 1 would flag as missing a value that had
+    just been computed -- the same bug, one line later. This test breaks if someone moves
+    step 0 further down."""
     df = clean_record(pd.DataFrame([dict(MINIMO, emp_length="3 years")]))
     assert (df["emp_length_anos"].iloc[0], df["emp_length_missing"].iloc[0]) == (3.0, 0)

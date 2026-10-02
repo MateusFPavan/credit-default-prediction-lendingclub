@@ -1,27 +1,26 @@
 """
-Testes unitarios de src/features.py -- build_features e prepare_X.
+Unit tests for src/features.py -- build_features and prepare_X.
 
-Cobre o item Data 7 do ML Test Score ("all input feature code is tested"), que a
-medicao de 2026-08-30 encontrou em ZERO: tests/ cobria economics.py e psi.py, mas
-nao o codigo de criacao de feature.
+Covers ML Test Score item Data 7 ("all input feature code is tested"): the feature
+creation code had no tests of its own, only economics.py and psi.py did.
 
-O teste mais importante deste arquivo e test_build_features_e_puro_por_linha: ele
-transforma em teste executavel a afirmacao do docstring de build_features ("does not
-read, receive, or reference any other dataset"). Essa propriedade e a razao de o
-pipeline nao ter vazamento de estado entre treino e inferencia; sem teste, e so uma
-promessa em prosa.
+The most important test in this file is test_build_features_e_puro_por_linha: it
+turns the claim in build_features' docstring ("does not read, receive, or reference
+any other dataset") into an executable test. That property is why the pipeline has no
+state leaking between training and inference; without a test it is only a promise in
+prose.
 
-Os dois testes test_REGRESSAO_* sao o guard do BUG P-043, achado enquanto este arquivo
-era escrito e corrigido em 2026-08-30. O bug: com drop_first=True e um lote de 1 linha,
-get_dummies produz ZERO colunas categoricas, e o reindex(fill_value=0) de score_frame
-preenchia tudo com 0 em silencio -- como a API e single-record, TODA requisicao era
-pontuada como se o candidato fosse a categoria-base.
+The two test_REGRESSAO_* tests guard against batch-dependent one-hot encoding at
+inference, a bug found while this file was being written. With drop_first=True and a
+1-row batch, get_dummies produces ZERO categorical columns, and score_frame's
+reindex(fill_value=0) silently filled everything with 0 -- since the API is
+single-record, EVERY request was scored as if the applicant were the base category.
 
-Historico verificado: em 2026-08-30, ANTES da correcao, estes dois testes rodaram
-marcados como falha esperada e o pytest reportou "2 xfailed" -- ou seja, falharam de
-verdade, reproduzindo o bug. Contra o modelo real, o mesmo registro dava p=0.1341794431
-sozinho e p=0.1289446801 em lote. A correcao (drop_first=False na inferencia + reindex)
-os fez passar; o marcador foi entao removido e eles viraram testes de regressao normais.
+Verified before the fix: both tests ran marked as expected failures and pytest
+reported "2 xfailed" -- i.e. they genuinely failed, reproducing the bug. Against the
+real model the same record scored p=0.1341794431 alone and p=0.1289446801 in a batch.
+The fix (drop_first=False at inference + reindex) made them pass; the marker was then
+removed and they became ordinary regression tests.
 """
 import numpy as np
 import pandas as pd
@@ -32,7 +31,7 @@ from src.features import build_features, prepare_X
 
 
 def _frame_minimo(n=3):
-    """Frame com as colunas que build_features consome, valores distintos por linha."""
+    """Frame with the columns build_features consumes, distinct values per row."""
     return pd.DataFrame({
         "installment": [300.0, 500.0, 150.0][:n],
         "annual_inc": [60000.0, 120000.0, 30000.0][:n],
@@ -45,12 +44,12 @@ def _frame_minimo(n=3):
     })
 
 
-# --- build_features: pureza por linha (a propriedade que sustenta o pipeline) ---
+# --- build_features: row-wise purity (the property the pipeline rests on) ---
 
 def test_build_features_e_puro_por_linha():
-    """Processar um subconjunto da vez tem que dar exatamente o mesmo resultado que
-    processar o frame inteiro e depois fatiar. Se build_features lesse qualquer
-    estatistica de outras linhas (media, mediana, min/max), este teste quebraria."""
+    """Processing one subset at a time must give exactly the same result as processing
+    the whole frame and slicing afterwards. If build_features read any statistic from
+    other rows (mean, median, min/max), this test would break."""
     df = _frame_minimo(3)
     inteiro = build_features(df)
 
@@ -72,7 +71,7 @@ def test_build_features_nao_muta_a_entrada():
     assert list(df.columns) == colunas_antes
 
 
-# --- build_features: cada derivada, calculada a mao ---
+# --- build_features: each derived feature, computed by hand ---
 
 def test_installment_to_income_e_parcela_sobre_renda_mensal():
     df = build_features(_frame_minimo(1))
@@ -95,33 +94,34 @@ def test_open_acc_ratio():
 
 
 def test_credit_history_months_conta_meses_atravessando_o_ano():
-    """2001-08 -> 2015-06: 14 anos completos menos 2 meses = 166 meses."""
+    """2001-08 -> 2015-06: 14 full years minus 2 months = 166 months."""
     df = build_features(_frame_minimo(1))
     assert df["credit_history_months"].iloc[0] == (2015 - 2001) * 12 + (6 - 8)
     assert df["credit_history_months"].iloc[0] == 166
 
 
 def test_credit_history_months_pode_ser_negativo_se_as_datas_estiverem_invertidas():
-    """Documenta o comportamento atual: a funcao nao valida a ordem das datas.
-    Um registro com earliest_cr_line depois de issue_d produz valor negativo em vez
-    de erro. Quem valida ordem e o schema da API, nao build_features."""
+    """Documents current behaviour: the function does not validate date order.
+    A record with earliest_cr_line after issue_d produces a negative value instead
+    of an error. Date order is validated by the API schema, not by build_features."""
     df = _frame_minimo(1)
     df["earliest_cr_line"] = pd.to_datetime(["2020-01-01"])
     out = build_features(df)
     assert out["credit_history_months"].iloc[0] < 0
 
 
-# --- build_features: a borda que gera infinito (ligada a P-011) ---
+# --- build_features: the edge that produces infinity (see the finiteness guards) ---
 
 def test_renda_zero_produz_infinito_nas_tres_razoes_de_renda():
-    """ACHADO, nao bug corrigido aqui: annual_inc == 0 gera +inf em
-    installment_to_income, loan_to_income e revol_bal_to_income (divisao por zero
-    em float64 nao levanta, retorna inf).
+    """A FINDING, not a bug fixed here: annual_inc == 0 yields +inf in
+    installment_to_income, loan_to_income and revol_bal_to_income (division by zero
+    in float64 does not raise, it returns inf).
 
-    build_features NAO trata isso de proposito -- e transformacao pura por linha, sem
-    politica. Quem barra o caso e o guard de finitude em src.guards, chamado no
-    caminho de inferencia (score_frame). Este teste existe para que a borda fique
-    registrada e para quebrar se alguem mudar o comportamento sem querer."""
+    build_features deliberately does NOT handle this -- it is a pure row-wise
+    transformation with no policy. Stopping the case is the job of the API contract
+    (annual_inc > 0) and the finiteness guards (features.assert_matriz_finita, and the
+    output check in score_frame). This test exists so the edge stays on record and
+    breaks if someone changes the behaviour by accident."""
     df = _frame_minimo(1)
     df["annual_inc"] = [0.0]
     out = build_features(df)
@@ -131,8 +131,8 @@ def test_renda_zero_produz_infinito_nas_tres_razoes_de_renda():
 
 
 def test_total_acc_zero_produz_nan_em_open_acc_ratio():
-    """0/0 em float64 da NaN (nao inf). NaN e entrada legitima pro XGBoost, que tem
-    direcao default aprendida -- por isso o guard de finitude barra inf, nao NaN."""
+    """0/0 in float64 gives NaN (not inf). Unlike inf, NaN is a legitimate XGBoost
+    input: the model routes it along a learned default direction."""
     df = _frame_minimo(1)
     df["open_acc"] = [0.0]
     df["total_acc"] = [0.0]
@@ -140,7 +140,7 @@ def test_total_acc_zero_produz_nan_em_open_acc_ratio():
     assert np.isnan(out["open_acc_ratio"].iloc[0])
 
 
-# --- prepare_X: determinismo e ausencia de estado ---
+# --- prepare_X: determinism and no state ---
 
 def test_prepare_X_e_deterministico():
     df = build_features(_frame_minimo())
@@ -152,8 +152,8 @@ def test_prepare_X_e_deterministico():
 
 
 def test_prepare_X_nao_guarda_estado_entre_chamadas():
-    """Chamar com um frame nao pode influenciar o resultado do frame seguinte.
-    Se prepare_X guardasse categorias vistas (como um encoder com fit), quebraria."""
+    """A call with one frame must not influence the result for the next frame.
+    If prepare_X remembered categories it had seen (like a fitted encoder), this breaks."""
     cols = ["annual_inc", "home_ownership"]
     df1 = pd.DataFrame({"annual_inc": [1.0, 2.0], "home_ownership": ["rent", "own"]})
     df2 = pd.DataFrame({"annual_inc": [3.0], "home_ownership": ["rent"]})
@@ -176,7 +176,7 @@ def test_prepare_X_converte_datas_para_dias_desde_a_referencia():
 
 
 def test_prepare_X_faz_one_hot_com_drop_first():
-    """3 categorias -> 2 colunas (a primeira em ordem alfabetica e a base)."""
+    """3 categories -> 2 columns (the alphabetically first one is the base)."""
     df = pd.DataFrame({"home_ownership": ["rent", "own", "mortgage"]})
     X = prepare_X(df, ["home_ownership"], ["home_ownership"])
     assert "home_ownership_mortgage" not in X.columns
@@ -184,20 +184,20 @@ def test_prepare_X_faz_one_hot_com_drop_first():
 
 
 def test_prepare_X_ignora_categorica_que_nao_esta_em_feature_cols():
-    """categorical_cols pode listar colunas ausentes sem quebrar (cat_present)."""
+    """categorical_cols may list absent columns without breaking (cat_present)."""
     df = pd.DataFrame({"annual_inc": [1.0]})
     X = prepare_X(df, ["annual_inc"], CATEGORICAL_COLS)
     assert list(X.columns) == ["annual_inc"]
 
 
-# --- prepare_X: o risco que o docstring nomeia, e o bug que ele esconde ---
+# --- prepare_X: the risk its docstring names, and the bug it hides ---
 
 def test_prepare_X_muda_colunas_com_categorias_diferentes():
-    """O docstring de prepare_X avisa: 'Column set/order can differ between two
-    different calls if the underlying categorical columns don't share the same
-    categories - callers must reindex'.
+    """prepare_X's docstring warns that, with drop_first=True, the produced column set
+    depends on which categories are present in the call, not on the training
+    vocabulary.
 
-    Este teste prova que o aviso e real."""
+    This test proves the warning is real."""
     cols = ["home_ownership"]
     treino = pd.DataFrame({"home_ownership": ["rent", "own", "mortgage"]})
     lote = pd.DataFrame({"home_ownership": ["rent", "own"]})
@@ -206,17 +206,17 @@ def test_prepare_X_muda_colunas_com_categorias_diferentes():
     X_lote = prepare_X(lote, cols, cols)
 
     assert list(X_treino.columns) == ["home_ownership_own", "home_ownership_rent"]
-    assert list(X_lote.columns) == ["home_ownership_rent"]  # drop_first removeu 'own'
+    assert list(X_lote.columns) == ["home_ownership_rent"]  # drop_first removed 'own'
     assert list(X_treino.columns) != list(X_lote.columns)
 
 
 def test_REGRESSAO_um_registro_sozinho_mantem_as_categoricas():
-    """GUARD do P-043. Um registro sozinho tem que ser codificado corretamente.
+    """Regression guard: a single record on its own must be encoded correctly.
 
-    Antes da correcao: drop_first=True removia a unica categoria presente, get_dummies
-    produzia ZERO colunas, e o reindex preenchia tudo com 0 -- o candidato virava a
-    categoria-base. Como a API e single-record (src/api.py: `def score(req:
-    ScoreRequest)`), isso valia para TODA requisicao."""
+    Before the fix: drop_first=True removed the only category present, get_dummies
+    produced ZERO columns, and the reindex filled everything with 0 -- the applicant
+    became the base category. Since the API is single-record (src/api.py: `def score(req:
+    ScoreRequest)`), that applied to EVERY request."""
     cols = ["home_ownership"]
     colunas_de_treino = ["home_ownership_own", "home_ownership_rent"]
 
@@ -229,13 +229,13 @@ def test_REGRESSAO_um_registro_sozinho_mantem_as_categoricas():
 
 
 def test_categoria_base_sozinha_fica_com_todas_as_dummies_em_zero():
-    """A outra metade da equivalencia, e a que quase ninguem testa.
+    """The other half of the equivalence, and the one almost nobody tests.
 
-    A categoria-base ('mortgage', primeira em ordem alfabetica) nao tem coluna no
-    treino. Com drop_first=False ela GANHA uma coluna, que o reindex descarta por nao
-    estar na lista treinada -- deixando o grupo todo em zero, que e exatamente como a
-    base e representada no treino. Sem este teste, a correcao poderia estar certa para
-    3 das 4 categorias e errada justamente para a base."""
+    The base category ('mortgage', alphabetically first) has no training column. With
+    drop_first=False it GETS a column, which the reindex drops because it is not in the
+    trained list -- leaving the whole group at zero, which is exactly how the base is
+    represented at training time. Without this test, the fix could be right for 3 of
+    the 4 categories and wrong precisely for the base."""
     cols = ["home_ownership"]
     colunas_de_treino = ["home_ownership_own", "home_ownership_rent"]
 
@@ -249,11 +249,11 @@ def test_categoria_base_sozinha_fica_com_todas_as_dummies_em_zero():
 
 
 def test_REGRESSAO_mesmo_registro_independe_do_lote():
-    """GUARD do P-043, segunda face e a mais grave.
+    """Regression guard, second face of the same bug and the more serious one.
 
-    Antes da correcao o MESMO registro recebia encoding diferente dependendo de quem
-    mais estava no lote, porque drop_first escolhe a base pelas categorias PRESENTES
-    naquele lote. Independencia de linha e propriedade nao-negociavel de um scorer."""
+    Before the fix the SAME record got a different encoding depending on who else was
+    in the batch, because drop_first picks the base from the categories PRESENT in that
+    batch. Row independence is a non-negotiable property of a scorer."""
     cols = ["home_ownership"]
     colunas_de_treino = ["home_ownership_own", "home_ownership_rent"]
     reg = {"home_ownership": "rent"}
@@ -264,10 +264,10 @@ def test_REGRESSAO_mesmo_registro_independe_do_lote():
     em_lote = prepare_X(pd.DataFrame([reg, outro]), cols, cols, drop_first=False).reindex(
         columns=colunas_de_treino, fill_value=False)
 
-    # compara VALOR, e tambem dtype -- com fill_value=False (e nao 0) as duas matrizes
-    # ficam bool nas duas situacoes. Com fill_value=0 os valores batiam (0 == False) mas
-    # o dtype nao (int64 vs bool), e foi assim que este teste falhou na primeira
-    # tentativa da correcao, em 2026-08-30.
+    # compares VALUE, and dtype too -- with fill_value=False (not 0) both matrices stay
+    # bool in both situations. With fill_value=0 the values matched (0 == False) but the
+    # dtype did not (int64 vs bool), which is how this test failed on the first attempt
+    # at the fix.
     assert sozinho.iloc[0].tolist() == em_lote.iloc[0].tolist()
     assert list(sozinho.dtypes) == list(em_lote.dtypes), (
         f"dtype depende do lote: {dict(sozinho.dtypes)} vs {dict(em_lote.dtypes)}"
@@ -275,21 +275,21 @@ def test_REGRESSAO_mesmo_registro_independe_do_lote():
 
 
 def test_drop_first_True_na_inferencia_ainda_falha_em_silencio():
-    """Por que a correcao teve que ser no CHAMADOR e nao no reindex.
+    """Why the fix had to be in the CALLER and not in the reindex.
 
-    Este teste mantem vivo o comportamento antigo (drop_first=True numa linha so) para
-    documentar POR QUE ele e perigoso: reindex(fill_value=0) preenche coluna AUSENTE
-    com 0, que e indistinguivel de 'a categoria-base foi observada'. Nao levanta, nao
-    loga, passa no CI -- a resposta continua bem-formada.
+    This test keeps the old behaviour (drop_first=True on a single row) alive to
+    document WHY it is dangerous: reindex(fill_value=0) fills a MISSING column with 0,
+    which is indistinguishable from 'the base category was observed'. It does not raise,
+    does not log, passes CI -- the response stays well-formed.
 
-    Licao transferivel: valor de preenchimento que coincide com um valor legitimo
-    transforma erro em silencio. Verificar que a protecao existe nao e o mesmo que
-    verificar o que ela recebe."""
+    Transferable lesson: a fill value that coincides with a legitimate value turns an
+    error into silence. Checking that the safeguard exists is not the same as checking
+    what it receives."""
     cols = ["home_ownership"]
     colunas_de_treino = ["home_ownership_own", "home_ownership_rent"]
 
     X = prepare_X(pd.DataFrame({"home_ownership": ["rent"]}), cols, cols, drop_first=True)
     alinhado = X.reindex(columns=colunas_de_treino, fill_value=0)
 
-    assert list(alinhado.columns) == colunas_de_treino   # forma correta
-    assert alinhado.sum(axis=1).iloc[0] == 0             # conteudo silenciosamente errado
+    assert list(alinhado.columns) == colunas_de_treino   # correct shape
+    assert alinhado.sum(axis=1).iloc[0] == 0             # silently wrong content

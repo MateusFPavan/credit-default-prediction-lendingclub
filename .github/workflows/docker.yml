@@ -75,10 +75,10 @@ jobs:
           code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/score \
             -H "Content-Type: application/json" \
             -d '{"loan_amnt": 10000}')
-          echo "status para input incompleto: $code"
+          echo "status for incomplete input: $code"
           [ "$code" = "422" ]
 
-      - name: Container logs (sempre, para debug)
+      - name: Container logs (always, for debugging)
         if: always()
         run: docker logs api
 
