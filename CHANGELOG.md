@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2026-10-02
+
+### Fixed
+
+- **`notebooks/6.0-evaluation.ipynb` still read the subgroup pattern as the model's
+  weakness.** Its text said the model is "least reliable exactly where risk is highest";
+  the baseline comparison of 3.4.0 shows the grade pattern belongs to the population and
+  the model-specific gap is among lower-income borrowers. The notebook now says that,
+  quoting `docs/technical_report.md` §8. Its closing pointer to `7.0-pipeline.ipynb` also
+  still described the model as not deployed; it now matches 7.0 (served and monitored, not
+  a live underwriter). Markdown only: the notebook was not re-run, and no output changed.
+
 ## [3.4.0] - 2026-10-01
 
 ### Added
