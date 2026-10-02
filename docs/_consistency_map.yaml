@@ -1,36 +1,37 @@
-# Mapa de consistência entre documentos. Fonte canônica -> consumidores.
+# Cross-document consistency map. Canonical source -> consumers.
 #
-# tipo:      "single" (um fato/valor esperado em todos que mencionam o assunto)
-#            "multi"  (escopos legítimos diferentes, não checar valor único)
-# severity:  "high" (quebra -> task) | "low" (cosmético/nota historica -> acumulador)
+# type:      "single" (one fact/value expected wherever the subject is mentioned)
+#            "multi"  (legitimately different scopes; no single value is checked)
+# severity:  "high" (a break fails the gate) | "low" (cosmetic/historical note -> report only)
 #
-# Como cada fato "single" e checado (scripts/check_consistency.py):
-#   1. topic  -- regex: o consumer FALA desse assunto em algum ponto?
-#   2. Se sim, dentro de uma janela de texto ao redor da mencao:
-#        - accept -- lista de formas EQUIVALENTES corretas de expressar o fato
-#                     (qualquer uma serve; nao exige palavra exata)
-#        - wrong  -- lista opcional de formas EXPLICITAMENTE erradas (ex.: contagem antiga)
-#   3. Se a janela bate com alguma 'wrong', OU nao bate com nenhuma 'accept' -> diverge.
-#   4. Se o consumer nunca menciona o topic, ele simplesmente nao e checado ali --
-#      "nao mencionar" nao e violacao.
+# How each "single" fact is checked (scripts/check_consistency.py):
+#   1. topic  -- regex: does the consumer TALK about this subject anywhere?
+#   2. If so, within a text window around each mention:
+#        - accept -- list of EQUIVALENT correct ways to state the fact
+#                    (any one is enough; no exact wording required)
+#        - wrong  -- optional list of EXPLICITLY wrong forms (e.g. an old count)
+#   3. If the window matches any 'wrong', OR matches no 'accept' -> divergence.
+#   4. A consumer that never mentions the topic is simply not checked there --
+#      "not mentioning" is not a violation.
 #
-# Historico de ajustes (confirmados no disco antes de cada mudanca):
-# - 2026-09-17: primeira versao usava checagem por substring solta (ex.: "78" em
-#   qualquer lugar do doc), que mascarava o LOW esperado (roadmap.md tem "78" por
-#   coincidencia em "255.470.782" e "0,0878", nada a ver com contagem de features) e
-#   um topic amplo demais ("CI") que casava dentro de "decision", "specific" etc.
-#   Reescrito para o modelo topic+accept+wrong acima, com cada padrao testado contra
-#   o texto real de cada consumidor antes de fixar no mapa.
-# - 2026-09-30: ri_79_features_historic RESOLVIDO. O "79" descrevia o tamanho da
-#   lista FEATURE_SET quando o experimento rodou; o application_type saiu dela
-#   depois sem nunca ter contribuido coluna, entao o artefato que a Fase 2a
-#   carregou (models/xgb_final.joblib, 90 colunas) e o MESMO de hoje. "78" e
-#   verdade sobre o modelo atual e sobre o experimento. Corrigido no roadmap e
-#   nos notebooks 18 e 20; o fato fica como guarda contra regressao.
-# - maturity_cutoff: a frase literal "Dec/2015...Dec/2013" so aparece em
-#   technical_report.md; DATA_CARD.md e DIMENSIONAL_MODEL.md nunca a citam, so herdam
-#   a CONSEQUENCIA numerica da regra. Fato trocado para checar essa consequencia
-#   (a populacao final, 673.314), que os tres de fato compartilham.
+# Adjustment history (each confirmed on disk before the change):
+# - 2026-09-17: the first version used loose substring checks (e.g. "78" anywhere in a
+#   document), which hid the expected LOW finding ("78" appeared by coincidence inside
+#   "255.470.782" and "0,0878", unrelated to the feature count) and a topic that was too
+#   broad ("CI") matched inside "decision", "specific", etc. Rewritten as the
+#   topic+accept+wrong model above, with every pattern tested against each consumer's
+#   real text before it was fixed in the map.
+# - 2026-09-30: ri_79_features_historic RESOLVED. "79" described the size of the
+#   FEATURE_SET list when the experiment ran; application_type left it later without ever
+#   having contributed a column, so the artifact Phase 2a loaded (models/xgb_final.joblib,
+#   90 columns) is the same as today's. "78" is true of the current model and of the
+#   experiment. The fact stays as a regression guard.
+# - maturity_cutoff: the literal phrase "Dec/2015...Dec/2013" appears only in
+#   technical_report.md; DATA_CARD.md and DIMENSIONAL_MODEL.md never quote it, they only
+#   inherit the numeric CONSEQUENCE of the rule. The fact checks that consequence instead
+#   (the final population, 673,314), which all three share.
+# - 2026-10-02: the reject-inference write-up moved to docs/reject_inference.md; the two
+#   RI facts and the profit headline now check it.
 facts:
   - name: feature_count
     source: src/data.py            # FEATURE_SET / CATEGORICAL_COLS
@@ -45,7 +46,7 @@ facts:
     source: docs/FACTS.md
     type: single
     severity: high
-    consumers: [README.md, docs/MODEL_CARD.md, docs/SETUP.md, docs/technical_report.md, CHANGELOG.md]
+    consumers: [README.md, docs/MODEL_CARD.md, docs/SETUP.md, docs/technical_report.md, CHANGELOG.md, docs/reject_inference.md]
     topic: '242,2\d{2},\d{3}'
     accept: ['242,230,710\.89']
 
@@ -56,7 +57,7 @@ facts:
     consumers: [docs/DATA_CARD.md, docs/technical_report.md, docs/DIMENSIONAL_MODEL.md]
     topic: '673,3\d{2}'
     accept: ['673,314']
-    note: "checa a POPULACAO FINAL (consequencia numerica do corte), nao a frase Dec/2015...Dec/2013 -- ver historico de ajustes acima"
+    note: "checks the FINAL POPULATION (numeric consequence of the cutoff), not the phrase Dec/2015...Dec/2013 -- see the adjustment history above"
 
   - name: ci_pipeline
     source: .github/workflows/docker.yml
@@ -65,28 +66,28 @@ facts:
     consumers: [README.md, docs/MODEL_CARD.md, docs/SETUP.md]
     topic: 'smoke-test'
     accept: ['unit-tests', 'unit tests', 'pytest tests', '146 tests', 'test suite', 'only if that passes']
-    note: "aceita formas equivalentes -- o fato e 'testes rodam antes do build', nao a palavra exata 'unit-tests'"
+    note: "accepts equivalent forms -- the fact is 'tests run before the build', not the exact word 'unit-tests'"
 
   - name: calibration_metrics
     source: docs/MODEL_CARD.md
-    type: multi          # escopos legitimos diferentes (full vs metade) — NAO checar valor unico
+    type: multi          # legitimately different scopes (full vs half) -- do NOT check a single value
     severity: low
-    note: "bias/Brier tem 2 escopos legitimos (full-test vs metade do teste, experimento de calibracao). Nao e divergencia."
+    note: "bias/Brier have 2 legitimate scopes (full test set vs half of it, calibration experiment). Not a divergence."
 
   - name: thin_model_auc
-    source: docs/reject_inference_roadmap.md
+    source: docs/reject_inference.md
     type: single
-    severity: low        # tese de RI e secao honesta, nao manchete
-    consumers: [README.md]
+    severity: low        # RI thesis section, not a headline number
+    consumers: [README.md, docs/reject_inference.md]
     topic: '0\.56\d{2}'
     accept: ['0\.5620']
 
   - name: ri_79_features_historic
     source: src/data.py
     type: single
-    severity: low         # pendencia BAIXA conhecida, nota historica -- nao bloqueia
-    consumers: [docs/reject_inference_roadmap.md]
+    severity: low         # historical note, kept as a regression guard -- does not block
+    consumers: [docs/reject_inference.md]
     topic: 'XGB [0-9]+ features|[0-9]+ features vs thin'
     accept: ['78 features']
     wrong: ['79 features']
-    note: "resolvido 2026-09-30 (ver historico de ajustes no topo). Mantido como guarda: se o 79 voltar, e regressao. Fato separado do feature_count porque o mesmo nome de fato nao pode ter duas severidades"
+    note: "resolved 2026-09-30 (see the adjustment history at the top). Kept as a guard: if 79 comes back, it is a regression. Separate from feature_count because one fact name cannot carry two severities"

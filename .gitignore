@@ -19,10 +19,10 @@ __pycache__/
 data/marts/*.parquet
 data/marts/*_sample.csv
 
-# internal process docs (how-we-work rules, decision tables, blind-spot notes): not
-# portfolio, stays local. A public repo is judged by result/code/README/Model Card, not by
-# how much of the process was assistant-driven -- keep the two separate on purpose.
+# Internal working notes stay local: anything under _processo_interno/ or named _interno_*
+# is never versioned. The repository holds results, code and their documentation.
 _processo_interno/
-# CLAUDE.md holds the same kind of content (working rules for the coding assistant), so it
-# stays local as well. Tracked from 2026-09-14 to 2026-09-30; those versions remain in history.
+_interno_*
+**/_interno_*
+# Local instructions for the coding assistant (versioned until 2026-09-30, local since).
 CLAUDE.md

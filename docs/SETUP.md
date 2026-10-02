@@ -180,7 +180,7 @@ absolute path appears anywhere in this guide or in `run_all.py`), no committed s
 
 ## 9. Serving the API in a container (Docker)
 
-The inference API (`src/api.py`, task 4.3) is containerized. The container uses a lean
+The inference API (`src/api.py`) is containerized. The container uses a lean
 runtime, `requirements-api.txt` (~9 packages: fastapi, uvicorn, pandas, numpy,
 scikit-learn, xgboost, joblib, pyarrow, pydantic), **not** the full `requirements.txt`
 — which includes the research ecosystem (Jupyter, shap, seaborn) the API doesn't use.

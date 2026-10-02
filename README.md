@@ -169,8 +169,8 @@ correct exactly this selection bias. This investigation asks, with rigor: is
 RI actually validatable on this dataset? The answer is no, and the negative
 result is the deliverable.
 
-Full methodology, every number, and the chronological decision log:
-[`docs/reject_inference_roadmap.md`](docs/reject_inference_roadmap.md).
+Full write-up, with every number and the reasoning behind each decision:
+[`docs/reject_inference.md`](docs/reject_inference.md).
 Implementation: `notebooks/16` through `20`.
 
 ```mermaid
@@ -317,7 +317,7 @@ Dockerfile       containerized inference API
 | [`docs/DATA_CARD.md`](docs/DATA_CARD.md) | Dataset datasheet (provenance, license, missing-data mechanisms) |
 | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model specification, training procedure, evaluation, serving |
 | [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) | Next steps in order, and options set aside, each with its evidence |
-| [`docs/reject_inference_roadmap.md`](docs/reject_inference_roadmap.md) | Reject-inference investigation (v3): full methodology, decisions, and results |
+| [`docs/reject_inference.md`](docs/reject_inference.md) | Reject-inference investigation (v3): question, method, evidence and conclusion |
 | [`docs/SETUP.md`](docs/SETUP.md) | Environment setup and reproduction, step by step |
 | [`CHANGELOG.md`](CHANGELOG.md) | Versioned change history (Keep a Changelog / SemVer) |
 | [`references/one_pager.md`](references/one_pager.md) | One-page recruiter case study (EN) |

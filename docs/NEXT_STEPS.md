@@ -79,7 +79,7 @@ review.
 
 ### Reject inference
 
-Investigated in full ([reject-inference roadmap](reject_inference_roadmap.md), notebooks
+Investigated in full ([reject-inference write-up](reject_inference.md), notebooks
 16 to 20). On this dataset it cannot be validated: no rejected application has an outcome,
 the signal shared between approved and rejected applicants is weak (AUC 0.5620), and a
 Bayesian bias-aware evaluation returns close to the prior it is given (slope about 0.99).

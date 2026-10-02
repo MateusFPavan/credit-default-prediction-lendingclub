@@ -1,10 +1,11 @@
 # FACTS.md: Canonical Facts Sheet
-> **Escopo desta folha.** Cobre o modelo de emprestimos APROVADOS, com numeros extraidos em
-> 2026-07-12. **Nao cobre**: a investigacao de reject inference (notebooks 16-20, incluindo a
-> ingestao em PySpark/Databricks, o DuckDB e a avaliacao bayesiana), a auditoria do caminho de
-> serving da versao 3.0.0, nem a suite de testes. Para esses, as fontes sao o `README.md`,
-> `docs/reject_inference_roadmap.md` e o `CHANGELOG.md`. Nesta folha, a palavra "rejected"
-> significa *recusado pelo modelo no corte 0,31* -- nao tem relacao com reject inference.
+> **Scope of this sheet.** It covers the APPROVED-loan model, with numbers extracted on
+> 2026-07-12. **It does not cover** the reject-inference investigation (notebooks 16-20,
+> including the PySpark/Databricks ingestion, DuckDB and the Bayesian evaluation), the
+> serving-path audit of version 3.0.0, or the test suite. For those, the sources are
+> `README.md`, `docs/reject_inference.md` and `CHANGELOG.md`. In this sheet the word
+> "rejected" means *rejected by the model at the 0.31 cutoff*; it has nothing to do with
+> reject inference.
 
 Single source of truth for all downstream documentation (README, technical report,
 one-pager). Every number here was extracted by direct reading of the project's actual
@@ -90,9 +91,8 @@ Second-stage exclusion (recorded in `docs/cleaning_decisions.md`, confirmed agai
 | minus: 234 joint-application rows (dti systematically distorted, see §4) | -234 | |
 | **Final cleaned population** (`loans_clean.parquet`) | **673,314** | **-239 total** |
 
-`loans_clean.parquet` shape confirmed by direct read: **(673,314 rows, 84 columns)**. This
-is the artifact the task's phrase "84 colunas" refers to. See §8 for why
-`train.parquet` has 89, not 84, columns.
+`loans_clean.parquet` shape confirmed by direct read: **(673,314 rows, 84 columns)**. See
+§8 for why `train.parquet` has 89, not 84, columns.
 
 Within the final cleaned population: `loan_status` value counts are Fully Paid 573,572 /
 Charged Off 99,742 (default rate 14.8136%, matching the population-level rate to within
@@ -460,17 +460,16 @@ Everything in this sheet was checked against `docs/scope.md` and
 `docs/cleaning_decisions.md`, and against the notebooks' own recorded outputs. One
 discrepancy surfaced, plus one clarification worth flagging explicitly:
 
-1. **"84 columns" vs. 89 columns.** The task's brief for this sheet describes "as 84
-   colunas finais do dataset processado", but instructs building the table "para CADA
-   coluna de train.parquet". These are two different artifacts: `loans_clean.parquet`
+1. **"84 columns" vs. 89 columns.** Both counts appear for "the processed dataset", and
+   they describe two different artifacts: `loans_clean.parquet`
    (notebook 03's output, the cleaned analytical population before the temporal split and
    before feature engineering) has exactly **84 columns**, confirmed by direct read. But
    `train.parquet` (notebook 04's temporal split + notebook 05's `build_features`, which
    adds `installment_to_income`, `loan_to_income`, `credit_history_months`,
    `revol_bal_to_income`, `open_acc_ratio`) has **89 columns**: 84 + 5. Both numbers are
-   correct for their respective artifact. This sheet follows the explicit instruction
-   ("cada coluna de train.parquet") and therefore reports 89, with this note so the
-   discrepancy isn't mistaken for an error.
+   correct for their respective artifact. The column table in this sheet describes
+   `train.parquet` and therefore reports 89, with this note so the difference isn't
+   mistaken for an error.
 2. Every number in the population funnel (§2) was independently recomputed from the raw
    CSV rather than copied from `docs/scope.md`, and matched exactly (2,260,701 →
    673,553 → 673,314, default rate 14.81%, every intermediate exclusion count). No
