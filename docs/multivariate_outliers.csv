@@ -1,4 +1,4 @@
-id,bc_open_to_buy,revol_util,total_il_high_credit_limit,tot_cur_bal,tot_coll_amt,total_rev_hi_lim,dti,annual_inc,n_extremos,emp_title,emp_length,home_ownership,verification_status,grade,loan_amnt,issue_d,loan_status
+id,bc_open_to_buy,revol_util,total_il_high_credit_limit,tot_cur_bal,tot_coll_amt,total_rev_hi_lim,dti,annual_inc,n_extremes,emp_title,emp_length,home_ownership,verification_status,grade,loan_amnt,issue_d,loan_status
 21200242,18652.0,66.3,1241783.0,3258254.0,0.0,867000.0,12.25,1600000.0,4,Managing Director ,4 years,mortgage,source verified,a,28000.0,2014-07-01,Fully Paid
 65875440,14492.0,97.4,975560.0,3078704.0,0.0,501500.0,22.81,1473000.0,3,,,mortgage,verified,c,25575.0,2015-12-01,Fully Paid
 59211112,1231.0,98.8,12856.0,2809127.0,0.0,798500.0,4.53,1500000.0,3,Strategic Advisor & Consultant,1 year,mortgage,source verified,c,35000.0,2015-09-01,Fully Paid

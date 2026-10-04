@@ -1,4 +1,4 @@
-nome,dtype,%nulos_arquivo_inteiro,%nulos_populacao_aprovada,suspeita_vazamento,nota
+name,dtype,%null_in_the_whole_file,%null_approved_population,leakage_suspect,note
 id,int64,0.0,0.0,,
 member_id,float64,100.0,100.0,,
 loan_amnt,float64,0.0015,0.0,,

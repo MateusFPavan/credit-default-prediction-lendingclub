@@ -1,6 +1,6 @@
 {
   "model": "XGB_walkforward",
-  "hiperparametros": {
+  "hyperparameters": {
     "objective": "binary:logistic",
     "base_score": null,
     "booster": null,
@@ -124,8 +124,8 @@
     "open_acc_ratio"
   ],
   "FEATURE_SET_n": 79,
-  "threshold_operacional": 0.31,
-  "data_treino_utc": "2026-07-11T23:55:16.960768+00:00",
+  "operating_threshold": 0.31,
+  "trained_at_utc": "2026-07-11T23:55:16.960768+00:00",
   "sklearn_version": "1.9.0",
   "xgboost_version": "3.3.0",
   "python_version": "3.12.10",

@@ -119,7 +119,7 @@ Default rate rises monotonically from train to validation to test (12.43% to 13.
 `train.parquet` has **89 columns** (confirmed by direct read), not 84. See §8 for the
 reconciliation. Grouped by family. "% null (pre-treatment)" is the null rate **within the
 final analytical population**, from `docs/column_inventory.csv`'s
-`%nulos_populacao_aprovada` column (computed before any imputation/sentinel was applied).
+`%null_approved_population` column (computed before any imputation/sentinel was applied).
 "N/A (engineered)" means the column does not exist in the raw file. "Example value" is the
 first non-null value found in `train.parquet`.
 
