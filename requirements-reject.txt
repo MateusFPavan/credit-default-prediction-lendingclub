@@ -1,5 +1,5 @@
-﻿# Dependencias APENAS dos notebooks 16-20 (investigacao de reject inference).
-# A pipeline principal (requirements.txt) e a API (requirements-api.txt) nao precisam disto.
-# Instale com: pip install -r requirements-reject.txt
+﻿# Dependencies used ONLY by notebooks 16-21 and notebooks/scratch (reject inference investigation).
+# The main pipeline (requirements.txt) and the API (requirements-api.txt) do not need these.
+# Install with: pip install -r requirements-reject.txt
 pyspark==4.2.0
 duckdb==1.5.5

@@ -93,13 +93,13 @@ def regenerate_lofo():
     rows = []
     for i, feat in enumerate(FEATURE_SET, 1):
         r = fit_and_score([f for f in FEATURE_SET if f != feat], seed=42)
-        rows.append({"feature": feat, "delta_lucro": r["profit"] - base["profit"],
-                     "delta_auc": r["auc"] - base["auc"], "lucro": r["profit"],
+        rows.append({"feature": feat, "delta_profit": r["profit"] - base["profit"],
+                     "delta_auc": r["auc"] - base["auc"], "profit": r["profit"],
                      "auc": r["auc"], "thr": r["thr"]})
-        print("  [%2d/%d] %-34s delta=%15.2f" % (i, len(FEATURE_SET), feat, rows[-1]["delta_lucro"]))
+        print("  [%2d/%d] %-34s delta=%15.2f" % (i, len(FEATURE_SET), feat, rows[-1]["delta_profit"]))
         with open(LOFO_CSV, "w", newline="", encoding="utf-8") as fh:
-            w = csv.DictWriter(fh, fieldnames=["feature", "delta_lucro", "delta_auc",
-                                               "lucro", "auc", "thr"])
+            w = csv.DictWriter(fh, fieldnames=["feature", "delta_profit", "delta_auc",
+                                               "profit", "auc", "thr"])
             w.writeheader()
             w.writerows(rows)
 
@@ -165,7 +165,7 @@ if not os.path.exists(LOFO_CSV):
 deltas = []
 with open(LOFO_CSV, newline="", encoding="utf-8") as fh:
     for row in csv.DictReader(fh):
-        deltas.append((row["feature"], float(row["delta_lucro"])))
+        deltas.append((row["feature"], float(row["delta_profit"])))
 values = [d for _, d in deltas]
 median = st.median(values)
 print("  n                      : %d" % len(values))

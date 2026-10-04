@@ -52,8 +52,8 @@ def profit_at_threshold(y_true, y_prob, threshold, interest, loss):
     y_prob = np.asarray(y_prob)
     interest = np.asarray(interest)
     loss = np.asarray(loss)
-    aprovados = y_prob < threshold
-    return interest[aprovados & (y_true == 0)].sum() - loss[aprovados & (y_true == 1)].sum()
+    approved = y_prob < threshold
+    return interest[approved & (y_true == 0)].sum() - loss[approved & (y_true == 1)].sum()
 
 
 def optimal_threshold(y_true, y_prob, interest, loss, thresholds=None):

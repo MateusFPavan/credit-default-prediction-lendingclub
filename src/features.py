@@ -91,7 +91,7 @@ def prepare_X(df, feature_cols, categorical_cols=CATEGORICAL_COLS, drop_first=Tr
     return X
 
 
-def assert_matriz_finita(X, contexto=""):
+def assert_finite_matrix(X, context=""):
     """Raise if the feature matrix contains NaN or +/-Inf. Silent otherwise.
 
     Why it exists: build_features divides by annual_inc (three ratios) and by total_acc
@@ -111,12 +111,12 @@ def assert_matriz_finita(X, contexto=""):
     the OUTPUT probability, which cannot be non-finite under any circumstance.
     """
     num = X.select_dtypes(include=[np.number])
-    com_nan = [c for c in X.columns if X[c].isna().any()]
-    com_inf = [c for c in num.columns if np.isinf(num[c]).any()]
-    if com_nan or com_inf:
+    nan_cols = [c for c in X.columns if X[c].isna().any()]
+    inf_cols = [c for c in num.columns if np.isinf(num[c]).any()]
+    if nan_cols or inf_cols:
         raise ValueError(
-            f"Non-finite feature matrix{' (' + contexto + ')' if contexto else ''}: "
-            f"NaN in {com_nan}; Inf in {com_inf}. "
+            f"Non-finite feature matrix{' (' + context + ')' if context else ''}: "
+            f"NaN in {nan_cols}; Inf in {inf_cols}. "
             "build_features divides by annual_inc and total_acc -- a zero in either is the "
             "usual cause."
         )

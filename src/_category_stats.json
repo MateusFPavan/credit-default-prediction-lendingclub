@@ -1,7 +1,7 @@
 {
-  "_comment": "Vocabulario de categorias congelado do split de treino. Gerado por _scratch_p044_gerar_vocabulario.py. Existe para distinguir categoria DESCONHECIDA de categoria-BASE, que sao indistinguiveis a partir do .joblib porque drop_first removeu a coluna da base. Ver P-044.",
+  "_comment": "Category vocabulary generated from the training split and frozen to disk. It exists to tell an UNKNOWN category apart from the BASE category, which are indistinguishable from the .joblib because drop_first removed the base's column.",
   "_split": "train",
-  "_n_linhas": 172988,
+  "_n_rows": 172988,
   "categories": {
     "home_ownership": [
       "mortgage",

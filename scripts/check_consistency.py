@@ -77,15 +77,15 @@ def check():
 if __name__ == "__main__":
     high, low = check()
     if high:
-        print("[HIGH — quebra consistencia, vira task]")
+        print("[HIGH — breaks consistency; must be fixed]")
         for h in high:
             print("  ", h)
     if low:
-        print("[LOW — acumulador]")
+        print("[LOW — mismatch to review, not blocking]")
         for l in low:
             print("  ", l)
     if not high and not low:
-        print("consistencia OK")
+        print("consistency OK")
 
     gate = "--gate" in sys.argv
     sys.exit(1 if (gate and high) else 0)

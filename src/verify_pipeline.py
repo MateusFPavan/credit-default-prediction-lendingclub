@@ -6,7 +6,7 @@ Run with: python -m src.verify_pipeline
 """
 from src.data import load_split, FEATURE_SET, CATEGORICAL_COLS
 from src.economics import compute_interest_loss, profit_at_threshold
-from src.features import assert_matriz_finita, build_features, prepare_X
+from src.features import assert_finite_matrix, build_features, prepare_X
 from src.models import build_xgb_final
 
 REFERENCE_PROFIT_XGB = 242230710.89
@@ -17,7 +17,7 @@ def main():
     train = load_split("train")
     train_feat = build_features(train)
     X_train = prepare_X(train_feat, FEATURE_SET, CATEGORICAL_COLS)
-    assert_matriz_finita(X_train, "train")   # fail loudly on NaN/Inf
+    assert_finite_matrix(X_train, "train")   # fail loudly on NaN/Inf
     y_train = train_feat["target"].values
 
     model = build_xgb_final()
@@ -35,19 +35,19 @@ def main():
     # columns missing, 0 dropped. The check below enforces that property instead of
     # trusting it; if someone runs this on a subset, it fails loudly instead of
     # producing a plausible but wrong profit.
-    _faltando = [c for c in X_train.columns if c not in X_test.columns]
-    _sobrando = [c for c in X_test.columns if c not in X_train.columns]
-    if _faltando or _sobrando:
+    _missing = [c for c in X_train.columns if c not in X_test.columns]
+    _extra = [c for c in X_test.columns if c not in X_train.columns]
+    if _missing or _extra:
         raise RuntimeError(
             f"Test encoding diverged from train before the reindex. "
-            f"Missing in test (the reindex would invent them as 0): {_faltando}; "
-            f"present only in test (the reindex would drop them): {_sobrando}. "
+            f"Missing in test (the reindex would invent them as 0): {_missing}; "
+            f"present only in test (the reindex would drop them): {_extra}. "
             "Running on a subset that does not contain every category produces "
             "exactly this."
         )
 
     X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
-    assert_matriz_finita(X_test, "test")   # fail loudly on NaN/Inf
+    assert_finite_matrix(X_test, "test")   # fail loudly on NaN/Inf
     y_test = test_feat["target"].values
 
     interest_test, loss_test = compute_interest_loss(test_feat)

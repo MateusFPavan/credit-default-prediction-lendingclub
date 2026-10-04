@@ -100,14 +100,14 @@ def _warn_unseen_categories(df: pd.DataFrame) -> None:
     i.e. as the base category). The caller needs to know it happened; it does not need the
     batch aborted.
     """
-    for coluna, conhecidas in _training_vocabulary().items():
-        if coluna not in df.columns:
+    for column, known in _training_vocabulary().items():
+        if column not in df.columns:
             continue
-        novas = sorted(set(df[coluna].dropna().astype(str).unique()) - set(conhecidas))
-        if novas:
+        unseen = sorted(set(df[column].dropna().astype(str).unique()) - set(known))
+        if unseen:
             log.warning(
                 "column %r has categories not seen in training: %s -- they will be scored "
-                "as the base category. Known: %s", coluna, novas, conhecidas,
+                "as the base category. Known: %s", column, unseen, known,
             )
 
 
@@ -144,7 +144,7 @@ def score_frame(df: pd.DataFrame, model=None, threshold: float = OPERATIONAL_THR
     Deterministic AND row-independent: the score of a row does not depend on the other
     rows in the frame. Scoring a record alone and scoring it inside a batch give the same
     probability (guaranteed by drop_first=False + reindex; see the module docstring and
-    tests/test_features.py::test_REGRESSAO_*).
+    tests/test_features.py::test_REGRESSION_*).
     """
     from src.features import build_features, prepare_X  # late import: avoids a cycle
     from src.cleaning import clean_record
@@ -170,13 +170,13 @@ def score_frame(df: pd.DataFrame, model=None, threshold: float = OPERATIONAL_THR
     # Silent by measurement, not by hope: over the 172,988 training rows the output
     # had no NaN, no Inf and was entirely within [0,1] (min 0.0009279759, max
     # 0.7852590084). This is the SERVING-side guard; the training side is
-    # features.assert_matriz_finita. The likely source is annual_inc or total_acc at
+    # features.assert_finite_matrix. The likely source is annual_inc or total_acc at
     # zero, which the API contract rejects (both must be > 0) but a batch need not.
     if not np.isfinite(proba).all():
-        ruins = [int(i) for i in np.flatnonzero(~np.isfinite(proba))[:10]]
+        bad_positions = [int(i) for i in np.flatnonzero(~np.isfinite(proba))[:10]]
         raise ValueError(
             f"predict_proba returned {int((~np.isfinite(proba)).sum())} non-finite "
-            f"value(s); first positions: {ruins}. Input with annual_inc or total_acc "
+            f"value(s); first positions: {bad_positions}. Input with annual_inc or total_acc "
             "at zero produces Inf in the build_features ratios."
         )
 

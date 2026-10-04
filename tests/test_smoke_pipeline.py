@@ -33,7 +33,7 @@ from src.data import FEATURE_SET, CATEGORICAL_COLS
 from src.features import build_features, prepare_X
 from src.scoring import score_frame
 
-MODULOS = ["src.data", "src.cleaning", "src.features", "src.scoring", "src.models",
+MODULES = ["src.data", "src.cleaning", "src.features", "src.scoring", "src.models",
            "src.economics", "src.psi", "src.api", "src.verify_pipeline", "src.run_facts"]
 
 BASE = {
@@ -47,18 +47,18 @@ BASE = {
 }
 
 
-@pytest.mark.parametrize("mod", MODULOS)
-def test_todo_modulo_de_src_importa(mod):
+@pytest.mark.parametrize("mod", MODULES)
+def test_every_src_module_imports(mod):
     """A circular import or a renamed symbol takes down the pipeline and no unit test
     notices -- each one imports only its own module."""
     importlib.import_module(mod)
 
 
-def _amostra(n=200, seed=0):
+def _sample(n=200, seed=0):
     """Synthetic data with the raw columns the pipeline requires. The values need not
     be realistic: the test is about interfaces fitting together, not about numbers."""
     rng = np.random.RandomState(seed)
-    linhas = []
+    rows = []
     for i in range(n):
         r = dict(BASE)
         r["annual_inc"] = float(rng.randint(20_000, 200_000))
@@ -73,14 +73,14 @@ def _amostra(n=200, seed=0):
         r["purpose"] = ["debt_consolidation", "credit_card", "other"][i % 3]
         r["verification_status"] = ["verified", "not verified"][i % 2]
         r["initial_list_status"] = ["w", "f"][i % 2]
-        linhas.append(r)
-    df = pd.DataFrame(linhas)
+        rows.append(r)
+    df = pd.DataFrame(rows)
     df["issue_d"] = pd.to_datetime(df["issue_d"])
     df["earliest_cr_line"] = pd.to_datetime(df["earliest_cr_line"])
     return df
 
 
-def test_caminho_de_treino_monta_ponta_a_ponta():
+def test_training_path_assembles_end_to_end():
     """clean_record -> build_features -> prepare_X -> fit -> predict, with a real
     fit. Does not measure numbers; checks that the four steps still fit together.
 
@@ -88,12 +88,12 @@ def test_caminho_de_treino_monta_ponta_a_ponta():
     independence from the frozen configuration, not reproducing a result."""
     from xgboost import XGBClassifier
 
-    df = _amostra()
+    df = _sample()
     y = (np.arange(len(df)) % 5 == 0).astype(int)   # synthetic target, 20% positives
 
     X = prepare_X(build_features(clean_record(df)), FEATURE_SET, CATEGORICAL_COLS)
     assert len(X) == len(df)
-    assert X.select_dtypes(include=["object"]).empty, "sobrou coluna nao numerica"
+    assert X.select_dtypes(include=["object"]).empty, "a non-numeric column was left over"
 
     m = XGBClassifier(n_estimators=8, max_depth=3, random_state=42, n_jobs=1)
     m.fit(X, y)
@@ -102,20 +102,20 @@ def test_caminho_de_treino_monta_ponta_a_ponta():
     assert np.isfinite(p).all() and (0 <= p).all() and (p <= 1).all()
 
 
-def test_caminho_de_serving_monta_ponta_a_ponta():
+def test_serving_path_assembles_end_to_end():
     """The other half: from the raw record to the decision, through the real artifact."""
-    out = score_frame(_amostra(n=20))
+    out = score_frame(_sample(n=20))
     assert list(out.columns) == ["probability_default", "decision"]
     assert len(out) == 20
     assert np.isfinite(out["probability_default"]).all()
     assert set(out["decision"]) <= {"approve", "reject"}
 
 
-def test_o_smoke_test_e_rapido_de_verdade():
+def test_smoke_test_is_actually_fast():
     """A slow smoke test stops being run, and then it is not a smoke test.
 
     The limit is generous (10s) because CI machines vary; the point is to pin an order
     of magnitude, not to benchmark."""
     t0 = time.perf_counter()
-    score_frame(_amostra(n=50))
+    score_frame(_sample(n=50))
     assert time.perf_counter() - t0 < 10.0
