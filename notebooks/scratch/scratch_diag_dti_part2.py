@@ -32,10 +32,10 @@ print(f"  min={mn} max={mx} distinct_values={ndist}")
 # --- D: does dti == 100 look like a cap? inspect the 95-105 neighborhood -----
 print("\n=== Distribution around 100 (95 to 105) ===")
 q = f"""
-SELECT ROUND(dti) faixa, COUNT(*) c FROM {rel}
-WHERE dti >= 95 AND dti <= 105 GROUP BY ROUND(dti) ORDER BY faixa
+SELECT ROUND(dti) band, COUNT(*) c FROM {rel}
+WHERE dti >= 95 AND dti <= 105 GROUP BY ROUND(dti) ORDER BY band
 """
-for faixa, c in con.execute(q).fetchall():
-    print(f"  dti~{faixa:>4} : {c:,}")
+for band, c in con.execute(q).fetchall():
+    print(f"  dti~{band:>4} : {c:,}")
 
 print("\n[END] Read-only diagnostic; nothing was written.")

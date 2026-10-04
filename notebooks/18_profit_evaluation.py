@@ -15,7 +15,7 @@
 #      realized-profit reference in src.economics.
 #   2. evaluate_rejected_scenario: scenario profit on rejected applications if all were
 #      accepted.
-#   3. run_etapa3: compare reject-scoring strategies at each model's own optimal threshold
+#   3. run_step3: compare reject-scoring strategies at each model's own optimal threshold
 #      and at fixed acceptance rates.
 #
 # Inputs
@@ -69,7 +69,7 @@
 #   - censored_extra test: a uniform base_mult does not change the ranking of rejects;
 #     only censored_extra, applied to rejects with dti_censored = 1 (dti >= 100%),
 #     reorders who enters the accepted fraction. Measured: the profit difference
-#     com_censored - sem_censored is 0.00 in all 24 combinations (2 base_mult x 3 LGD x
+#     with_censored - without_censored is 0.00 in all 24 combinations (2 base_mult x 3 LGD x
 #     4 acceptance rates). Censored rejects are already pushed into the worst-risk bands
 #     by their dti value of 100, so they are never accepted and the extra multiplier never
 #     changes profit. censored_extra has therefore been removed from parcelling in
@@ -225,9 +225,9 @@ def evaluate_rejected_scenario():
     print(f"{'LGD':>5}{'scenario_profit':>20}")
     scenario_results = {}
     for lgd in LGD_GRID:
-        lucro = portfolio_profit(p_rej, A_rej, i_rej, lgd)  # accept all = scenario
-        scenario_results[lgd] = lucro
-        print(f"{lgd:>5}{lucro:>20,.0f}")
+        profit = portfolio_profit(p_rej, A_rej, i_rej, lgd)  # accept all = scenario
+        scenario_results[lgd] = profit
+        print(f"{lgd:>5}{profit:>20,.0f}")
     print("[NOTE] Profit on rejects is a scenario: the rate (equivalent score band of approved "
           "loans, split 'train') and the PD (thin model, 3 features) are assumptions, not measured.")
 
@@ -294,10 +294,10 @@ def profit_at_acceptance_rate(pd_hat, A, i, lgd, rate, order=None):
 
 
 RATE_GRID = (0.1, 0.2, 0.3, 0.5)
-LGD_GRID_ETAPA3 = (0.5, 0.7, 0.9)  # representative subset (all 5 LGD values would be too dense)
+LGD_GRID_STEP3 = (0.5, 0.7, 0.9)  # representative subset (all 5 LGD values would be too dense)
 
 
-def run_etapa3(etapa2_out):
+def run_step3(step2_out):
     """Upper bound per model (own-scale thresholds) and primary comparison (fixed
     acceptance rate) across 5 reject-scoring strategies: the raw thin model, and
     parcelling with base_mult in {1.5, 2.0} (plausible range from notebook 17) crossed
@@ -307,23 +307,23 @@ def run_etapa3(etapa2_out):
     order; only censored_extra, applied selectively to censored rejects, reorders who
     enters the accepted X%. This is why the fixed-rate comparison is the right test of
     whether censored_extra adds profit."""
-    p_rej = etapa2_out["p_rej"]
-    rej_band = etapa2_out["rej_band"]
-    band_bad = etapa2_out["band_bad"]
-    rej_flags = etapa2_out["rej_flags"]
-    A_rej = etapa2_out["A_rej"]
-    i_rej = etapa2_out["i_rej"]
+    p_rej = step2_out["p_rej"]
+    rej_band = step2_out["rej_band"]
+    band_bad = step2_out["band_bad"]
+    rej_flags = step2_out["rej_flags"]
+    A_rej = step2_out["A_rej"]
+    i_rej = step2_out["i_rej"]
 
-    strategies = {"raw_thin (sem parcelling)": p_rej}
+    strategies = {"raw_thin (no parcelling)": p_rej}
     for base_mult in (1.5, 2.0):
-        for cx, label in ((1.0, "sem_censored"), (1.5, "com_censored")):
+        for cx, label in ((1.0, "without_censored"), (1.5, "with_censored")):
             name = f"base{base_mult}_{label}"
             strategies[name] = parcelling_pd_rejected(rej_band, band_bad, rej_flags, base_mult, cx)
 
     print("\n=== Step 3 (upper bound): optimal threshold on each strategy's own scale ===")
     print(f"{'strategy':>28}{'LGD':>6}{'own_threshold':>20}{'profit_at_optimum':>20}")
     for name, pd_hat in strategies.items():
-        for lgd in LGD_GRID_ETAPA3:
+        for lgd in LGD_GRID_STEP3:
             t, p = optimal_threshold_ownscale(pd_hat, A_rej, i_rej, lgd)
             print(f"{name:>28}{lgd:>6}{t:>20.3f}{p:>20,.0f}")
     print("  [reference] XGB optimal threshold on approved loans (Step 1, LGD=0.5) = 0.260; "
@@ -333,10 +333,10 @@ def run_etapa3(etapa2_out):
     print("\n=== Step 3 (primary comparison): profit at a fixed acceptance rate ===")
     names = list(strategies.keys())
     orders = {n: np.argsort(strategies[n]) for n in names}  # one argsort per strategy, reused
-    header = f"{'LGD':>4}{'taxa':>6}  " + "  ".join(f"{n:>24}" for n in names)
+    header = f"{'LGD':>4}{'rate':>6}  " + "  ".join(f"{n:>24}" for n in names)
     print(header)
     rows = []
-    for lgd in LGD_GRID_ETAPA3:
+    for lgd in LGD_GRID_STEP3:
         for rate in RATE_GRID:
             vals = [profit_at_acceptance_rate(strategies[n], A_rej, i_rej, lgd, rate, order=orders[n])
                     for n in names]
@@ -346,14 +346,14 @@ def run_etapa3(etapa2_out):
     df = pd.DataFrame(rows, columns=["lgd", "rate"] + names)
 
     print("\n[censored_extra test] Within each (LGD, rate), compare "
-          "base{X}_com_censored with base{X}_sem_censored (same base_mult, only cx changes). "
-          "If com_censored is consistently higher than sem_censored, the flag adds profit and "
+          "base{X}_with_censored against base{X}_without_censored (same base_mult, only cx changes). "
+          "If with_censored is consistently higher than without_censored, the flag adds profit and "
           "is kept. If equal or lower, the flag is removed from parcelling.")
     for base_mult in (1.5, 2.0):
-        sem = df[f"base{base_mult}_sem_censored"]
-        com = df[f"base{base_mult}_com_censored"]
-        delta = com - sem
-        print(f"  base_mult={base_mult}: com_censored - sem_censored "
+        without_censored = df[f"base{base_mult}_without_censored"]
+        with_censored = df[f"base{base_mult}_with_censored"]
+        delta = with_censored - without_censored
+        print(f"  base_mult={base_mult}: with_censored - without_censored "
               f"ranges from {delta.min():,.0f} to {delta.max():,.0f} "
               f"({(delta > 0).sum()}/{len(delta)} combinations improved)")
     return df
@@ -362,8 +362,8 @@ def run_etapa3(etapa2_out):
 if __name__ == "__main__":
     print("[Phase 2a] Profit-based evaluation (Kozodoi formula, LGD sweep)\n")
 
-    pd_hat_appr, A_appr, i_appr, y_appr_test, etapa1_results = validate_on_approved()
-    etapa2_out = evaluate_rejected_scenario()
-    etapa3_df = run_etapa3(etapa2_out)
+    pd_hat_appr, A_appr, i_appr, y_appr_test, step1_results = validate_on_approved()
+    step2_out = evaluate_rejected_scenario()
+    step3_df = run_step3(step2_out)
 
     print("\n[Phase 2a] Profit-based evaluation complete.")

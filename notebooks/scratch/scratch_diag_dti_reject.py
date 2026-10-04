@@ -17,13 +17,13 @@ print(f"Analyzing column: {DTI}")
 print("\n=== Row count by dti range (numeric) ===")
 q = f"""
 SELECT
-  COUNT(*) FILTER (WHERE dti < 0)                        AS negativos,
+  COUNT(*) FILTER (WHERE dti < 0)                        AS negative,
   COUNT(*) FILTER (WHERE dti = 0)                        AS zero,
-  COUNT(*) FILTER (WHERE dti > 0 AND dti < 100)          AS entre_0_100,
-  COUNT(*) FILTER (WHERE dti = 100)                      AS exatamente_100,
-  COUNT(*) FILTER (WHERE dti > 100 AND dti <= 1000)      AS entre_100_1000,
-  COUNT(*) FILTER (WHERE dti > 1000)                     AS acima_1000,
-  COUNT(*) FILTER (WHERE dti IS NULL)                    AS nulos,
+  COUNT(*) FILTER (WHERE dti > 0 AND dti < 100)          AS between_0_100,
+  COUNT(*) FILTER (WHERE dti = 100)                      AS exactly_100,
+  COUNT(*) FILTER (WHERE dti > 100 AND dti <= 1000)      AS between_100_1000,
+  COUNT(*) FILTER (WHERE dti > 1000)                     AS above_1000,
+  COUNT(*) FILTER (WHERE dti IS NULL)                    AS nulls,
   COUNT(*)                                               AS total
 FROM {rel}
 """

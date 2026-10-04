@@ -58,7 +58,7 @@ else:
     from pyspark.sql import SparkSession
     spark = (
         SparkSession.builder
-        .appName("reject_fase1")
+        .appName("reject_phase1")
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.driver.memory", "4g")
         .getOrCreate()
@@ -538,7 +538,9 @@ manifest = {
     "measured_row_count": int(n_reject),
     "raw_gz_size_bytes": int(size_bytes),
     "partitioned_by": "app_year",
-    "written_to": reject_parquet,
+    # repo-relative locally, so the committed manifest carries no machine-specific path
+    "written_to": (reject_parquet if ON_DATABRICKS
+                   else os.path.relpath(reject_parquet, REPO).replace(os.sep, "/")),
     "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "parse_audit": PARSE_AUDIT,
     "note": "Descriptive ingestion + profile only. No labels exist for the rejected "

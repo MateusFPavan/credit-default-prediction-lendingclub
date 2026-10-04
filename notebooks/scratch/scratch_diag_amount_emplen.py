@@ -13,8 +13,8 @@ q = f"""
 SELECT
   MIN(amount_requested) mn, MAX(amount_requested) mx,
   AVG(amount_requested) avg, MEDIAN(amount_requested) med,
-  COUNT(*) FILTER (WHERE amount_requested <= 0)      AS zero_ou_neg,
-  COUNT(*) FILTER (WHERE amount_requested IS NULL)   AS nulos,
+  COUNT(*) FILTER (WHERE amount_requested <= 0)      AS zero_or_neg,
+  COUNT(*) FILTER (WHERE amount_requested IS NULL)   AS nulls,
   COUNT(*) total
 FROM {rel}
 """
@@ -40,8 +40,8 @@ for v, c in con.execute(f"SELECT emp_length_raw, COUNT(*) c FROM {rel} GROUP BY 
 
 q = f"""
 SELECT
-  COUNT(*) FILTER (WHERE emp_length_raw IS NULL)                 AS nulos,
-  COUNT(*) FILTER (WHERE TRIM(CAST(emp_length_raw AS VARCHAR))='') AS vazios,
+  COUNT(*) FILTER (WHERE emp_length_raw IS NULL)                 AS nulls,
+  COUNT(*) FILTER (WHERE TRIM(CAST(emp_length_raw AS VARCHAR))='') AS empty,
   COUNT(*) total
 FROM {rel}
 """

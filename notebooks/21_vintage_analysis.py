@@ -167,10 +167,10 @@ if __name__ == "__main__":
     cols_status = inspect_status_columns(df_appr)
 
     print("\n[DECISION] A true roll rate requires a MONTHLY status trajectory per loan.")
-    tem_trajetoria_mensal = any(
+    has_monthly_trajectory = any(
         k in c.lower() for c in cols_status for k in ("pymnt", "payment")
     ) and False  # no candidate column above is a monthly series; see the printed inspection
-    if tem_trajetoria_mensal:
+    if has_monthly_trajectory:
         print("Monthly trajectory found -- roll rate would be computable (not implemented here).")
     else:
         print("Only a FINAL status (loan_status, 2 values) and snapshots exist (mths_since_*,")

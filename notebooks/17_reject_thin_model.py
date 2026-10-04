@@ -29,7 +29,7 @@
 #     with 3 features.
 #   - dti of rejected applications is treated by mechanism, not by blanket exclusion
 #     (diagnostic in notebooks/scratch/scratch_diag_dti_reject.py and
-#     notebooks/scratch/scratch_diag_dti_parte2.py):
+#     notebooks/scratch/scratch_diag_dti_part2.py):
 #       * dti == -1 ('-1%'): MNAR sentinel (same convention as -1 in emp_length_anos)
 #         -> flag dti_missing, value imputed with the median of the valid values.
 #       * dti == 100 ('100%'): right-censoring (>=100%; the spike is ~170x the nearest
@@ -165,7 +165,7 @@ def treat_dti_rejected(df, col="dti"):
     """
     Treat dti of the rejected applications by mechanism (diagnostic in
     notebooks/scratch/scratch_diag_dti_reject.py and
-    notebooks/scratch/scratch_diag_dti_parte2.py):
+    notebooks/scratch/scratch_diag_dti_part2.py):
       - dti == -1  -> missing sentinel ('-1%', same convention as emp_length_anos):
                       flag dti_missing=1, value imputed (median of the valid values).
       - dti == 9999/99999/199998 -> redundant sentinel (0.3%, already covered by -1
@@ -177,9 +177,9 @@ def treat_dti_rejected(df, col="dti"):
     """
     n0 = len(df)
     counts = {}
-    redund = df[col].isin([9999.0, 99999.0, 199998.0])
-    counts["descartados_9999"] = int(redund.sum())
-    df = df[~redund].copy()
+    redundant = df[col].isin([9999.0, 99999.0, 199998.0])
+    counts["dropped_9999"] = int(redundant.sum())
+    df = df[~redundant].copy()
     is_missing = (df[col] == -1)
     counts["missing_flag_-1"] = int(is_missing.sum())
     df["dti_missing"] = is_missing.astype(int)
@@ -188,10 +188,10 @@ def treat_dti_rejected(df, col="dti"):
     df["dti_censored"] = is_censored.astype(int)
     valid = df.loc[(df[col] > 0) & (df[col] < 100), col]
     median_valid = float(valid.median())
-    counts["mediana_imputada"] = median_valid
+    counts["imputed_median"] = median_valid
     df.loc[is_missing, col] = median_valid
-    counts["restaram"] = len(df)
-    counts["removidas_total"] = n0 - len(df)
+    counts["rows_remaining"] = len(df)
+    counts["rows_removed_total"] = n0 - len(df)
     print("[TREATMENT dti - rejected]")
     for k, v in counts.items():
         vv = f"{v:,}" if isinstance(v, int) else f"{v:.2f}"

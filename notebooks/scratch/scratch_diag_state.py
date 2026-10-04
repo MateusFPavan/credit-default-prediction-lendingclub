@@ -10,10 +10,10 @@ tot = con.execute(f"SELECT COUNT(*) FROM {rej}").fetchone()[0]
 print("=== state: cardinality and nulls ===")
 q = f"""
 SELECT
-  COUNT(DISTINCT state)                                   AS distintos,
-  COUNT(*) FILTER (WHERE state IS NULL)                   AS nulos,
-  COUNT(*) FILTER (WHERE TRIM(CAST(state AS VARCHAR))='') AS vazios,
-  COUNT(*) FILTER (WHERE LENGTH(TRIM(CAST(state AS VARCHAR))) <> 2) AS nao_2_letras,
+  COUNT(DISTINCT state)                                   AS n_distinct,
+  COUNT(*) FILTER (WHERE state IS NULL)                   AS nulls,
+  COUNT(*) FILTER (WHERE TRIM(CAST(state AS VARCHAR))='') AS empty,
+  COUNT(*) FILTER (WHERE LENGTH(TRIM(CAST(state AS VARCHAR))) <> 2) AS not_2_letters,
   COUNT(*) total
 FROM {rej}
 """

@@ -94,9 +94,9 @@ def demonstrate_illusion(X_appr, y_appr, X_rej, bands_list=(10,),
             inferred, _ = nb17.parcelling_labels(thin, X_appr, y_appr, X_rej, nb, bm)
             n_appr, n_rej = len(y_appr), len(inferred)
             train_rate = (y_appr.sum() + inferred.sum()) / (n_appr + n_rej)
-            inflacao = train_rate - base_rate
-            results.append((nb, bm, train_rate, inflacao))
-            print(f"{nb:>8}{bm:>10}{train_rate:>20.4f}{inflacao:>+22.4f}")
+            inflation = train_rate - base_rate
+            results.append((nb, bm, train_rate, inflation))
+            print(f"{nb:>8}{bm:>10}{train_rate:>20.4f}{inflation:>+22.4f}")
 
     print("\n[READING] If the training rate rises with base_mult (growing positive "
           "inflation), that is the artifact symptom from Illusion of Improvement (2026): more "
