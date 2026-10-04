@@ -4,6 +4,66 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-10-04
+
+### Added
+
+- **A publication check in CI.** `scripts/check_publication.py` reads `git ls-files` and
+  fails on a working note that `.gitignore` keeps local but was added anyway, a
+  machine-specific path, a work-tracker ID, a reference to one of those notes, or prose
+  that reads as Portuguese (`references/one_pager.pt-br.md` is the one Portuguese file on
+  purpose). It runs in the `unit-tests` job after the consistency
+  check.
+
+### Changed
+
+- **The working notebooks (`notebooks/01` to `15`) are in English.** Markdown, comments,
+  printed messages and the matching stored outputs were translated; Portuguese variable
+  names, dict keys and table labels were renamed, and the stored tables re-rendered with
+  the new labels. The notebooks were not re-run: every stored number keeps its value and every
+  stored image is byte-identical, so a few plot titles and axis labels drawn into those
+  images stay in Portuguese until the cells are re-run. Numbers in prose use English
+  separators (673,553, not 673.553). Machine paths in stored warnings are replaced with
+  `<repo>` and `<ipykernel>` placeholders. The same applies to the comments and one
+  output of `notebooks/16_reject_validation_databricks.ipynb`.
+- **Names and messages in `src/`, `tests/` and `scripts/` are in English.**
+  `assert_matriz_finita` is now `assert_finite_matrix`; two test files were renamed
+  (`test_estabilidade_numerica.py` to `test_numerical_stability.py`,
+  `test_paridade_treino_inferencia.py` to `test_train_serving_parity.py`) and the
+  suite still collects and passes the same 146 tests. `check_consistency.py` prints its
+  report in English.
+- **Committed outputs use English column names and keys**: `docs/column_inventory.csv`,
+  `docs/column_birth_log.csv`, `docs/multivariate_outliers.csv` (`n_extremes`),
+  `reports/lofo_deltas.csv` (`delta_profit`, `profit`), the metadata keys of
+  `src/_category_stats.json`, and `models/model_meta.json` (`hyperparameters`,
+  `operating_threshold`, `trained_at_utc`). Only header lines and keys changed, not
+  values; the notebooks and scripts that write and read these files changed with them.
+  `emp_length_anos` keeps its name: it is a column of the trained model's feature set, and
+  renaming it means retraining.
+- **The reject-inference scripts use English names** (strategy labels, count keys, SQL
+  aliases), and `notebooks/scratch/scratch_diag_dti_parte2.py` is now
+  `scratch_diag_dti_part2.py`. Nothing they compute changed.
+- **The reject-inference manifest records a repository-relative path.**
+  `reports/reject/reject_manifest.json` stored the absolute path of the machine that ran
+  notebook 16. The notebook now writes the path relative to the repository root, and the
+  committed manifest was corrected to the value it now writes
+  (`data/processed/reject/rejected.parquet`).
+- `requirements-reject.txt` names the notebooks that need it as 16 to 21 and
+  `notebooks/scratch` (it said 16 to 20; notebook 21 also uses DuckDB).
+- The CI workflow's step names and comments are in English, and the pytest step no longer
+  carries the test count in its name, so the label cannot drift from the suite again.
+
+### Fixed
+
+- **`05_feature_engineering` said it writes nothing to disk.** Its Section 6 overwrites
+  the four processed parquet files with the new features. The header now says which
+  sections only diagnose and what Section 6 writes.
+- **`13_error_analysis` called a count of defaults "default losses".** The capture figure
+  counts defaulted loans, not dollars; the text now says "defaults (by count)".
+- **A printed message in `11_calibration` said the calibrators were fitted on the 2014
+  validation.** They are fitted on 2013 and only applied to 2014, as the code and the
+  markdown say; the message now says the predictions are computed on the 2014 validation.
+
 ## [3.4.2] - 2026-10-02
 
 ### Changed
