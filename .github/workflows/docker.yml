@@ -21,11 +21,14 @@ jobs:
       - name: Install test dependencies (lean API deps + pytest/httpx/pyyaml — not the full research requirements.txt)
         run: pip install --no-cache-dir -r requirements-api.txt pytest httpx pyyaml
 
-      - name: Run pytest (tests/ — suite completa, 146 testes)
+      - name: Run pytest (tests/ — full suite)
         run: pytest tests/ -v
 
       - name: Consistency check (docs)
         run: python scripts/check_consistency.py --gate
+
+      - name: Publication check (no local paths, internal notes or non-English prose)
+        run: python scripts/check_publication.py
 
   build-and-smoke-test:
     needs: unit-tests
@@ -40,10 +43,10 @@ jobs:
       - name: Run container
         run: |
           docker run -d --name api -p 8000:8000 credit-default-api:ci
-          # esperar a API responder /health (ate ~30s)
+          # wait for the API to answer /health (up to ~30s)
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8000/health > /dev/null; then
-              echo "API pronta"; break
+              echo "API ready"; break
             fi
             sleep 1
           done
@@ -53,7 +56,7 @@ jobs:
           curl -sf http://localhost:8000/health | tee /tmp/health.json
           grep -q '"status":"ok"' /tmp/health.json
 
-      - name: Test /score (pedido valido real)
+      - name: Test /score (real valid request)
         run: |
           curl -sf -X POST http://localhost:8000/score \
             -H "Content-Type: application/json" \
@@ -66,11 +69,11 @@ jobs:
               "revol_bal": 8500, "revol_util": 42.3,
               "initial_list_status": "f", "inq_last_6mths": 1
             }' | tee /tmp/score.json
-          # a resposta deve ter probability_default e decision
+          # the response must contain probability_default and decision
           grep -q '"probability_default"' /tmp/score.json
           grep -q '"decision"' /tmp/score.json
 
-      - name: Test 422 (input invalido)
+      - name: Test 422 (invalid input)
         run: |
           code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/score \
             -H "Content-Type: application/json" \
